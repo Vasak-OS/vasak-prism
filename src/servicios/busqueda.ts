@@ -16,6 +16,7 @@ export type Origen =
 	| 'reciente'
 	| 'configuracion'
 	| 'ventana'
+	| 'archivo'
 	/** No hace nada: completa el campo. Un bang a medias, por ejemplo. */
 	| 'completar';
 
@@ -53,6 +54,7 @@ export function elegir(resultado: Resultado): Promise<void> {
 			return invoke<void>('copiar', { texto: resultado.id });
 		case 'web':
 		case 'reciente':
+		case 'archivo':
 			return invoke<void>('abrir', { destino: resultado.id });
 		case 'comando':
 			return invoke<void>('ejecutar', { comandoEscrito: resultado.id });

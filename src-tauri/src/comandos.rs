@@ -32,6 +32,17 @@ pub struct Estado {
     /// Si en esta máquina hay `systemd-run`. Se mira una vez, al arrancar, y no
     /// en cada lanzamiento.
     pub hay_scope: bool,
+    /// El índice de archivos del gestor, abierto de sólo lectura.
+    ///
+    /// En `Option` y no abierto al arrancar a secas: puede no existir todavía
+    /// —nadie escaneó— y aparecer después, así que se reintenta abrirlo mientras
+    /// no esté. Cuando está, el handle se queda.
+    ///
+    /// En `Arc` para poder soltarlo del candado antes de buscar: una consulta a
+    /// tantivy no es instantánea, y Tauri atiende cada comando en su hilo — con
+    /// el candado tomado durante la búsqueda, escribir rápido hace que cada
+    /// tecla espere a la anterior.
+    pub archivos: Mutex<Option<Arc<crate::proveedores::archivos::Indice>>>,
     /// Las ventanas abiertas, preguntadas al escritorio cada tanto.
     pub ventanas: Mutex<crate::proveedores::ventanas::Cache>,
     /// Las secciones de la configuración, leídas una vez al arrancar.
@@ -83,6 +94,20 @@ pub fn buscar(
         .unwrap_or_default();
 
     let mut filas = estado.catalogo.buscar_con_uso(&consulta, limite, &pesos);
+
+    // El candado se toma para sacar el handle y se suelta enseguida: buscar se
+    // hace afuera.
+    let indice = {
+        let mut guardado = estado.archivos.lock().unwrap_or_else(|e| e.into_inner());
+        if guardado.is_none() {
+            *guardado = crate::proveedores::archivos::Indice::del_lugar_de_siempre().map(Arc::new);
+        }
+        guardado.clone()
+    };
+
+    if let Some(indice) = indice {
+        filas.extend(indice.buscar(&consulta, limite));
+    }
 
     {
         let mut cache = estado.ventanas.lock().unwrap_or_else(|e| e.into_inner());

@@ -105,6 +105,8 @@ pub enum Origen {
     Configuracion,
     /// Una ventana abierta, que se trae al frente.
     Ventana,
+    /// Un archivo del índice, que se abre con lo que corresponda.
+    Archivo,
     /// No hace nada al elegirlo: completa el campo de búsqueda. Es para cuando
     /// lo que se escribió todavía no alcanza —un bang a medias— y ofrecerle a
     /// alguien que siga escribiendo es más útil que no ofrecerle nada.
