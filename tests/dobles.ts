@@ -80,12 +80,23 @@ export async function emitir(nombre: string) {
 	}
 }
 
-export async function getIconSource(_nombre: string) {
-	return '';
+/**
+ * Cada icono que se le pidió al tema, en orden y con repetidos.
+ *
+ * Con repetidos a propósito: lo que se quiere comprobar es justamente que no
+ * los haya. Una lista de cincuenta resultados que muestra ocho tiene que pedir
+ * ocho, y dos filas de la misma aplicación tienen que pedir uno.
+ */
+export const iconosPedidos: string[] = [];
+
+export async function getIconSource(nombre: string) {
+	iconosPedidos.push(nombre);
+	return `icono:${nombre}`;
 }
 
-export async function getSymbolSource(_nombre: string) {
-	return '';
+export async function getSymbolSource(nombre: string) {
+	iconosPedidos.push(nombre);
+	return `simbolo:${nombre}`;
 }
 
 export function olvidarTodo() {
@@ -94,4 +105,5 @@ export function olvidarTodo() {
 	respuestas.clear();
 	oyentes.clear();
 	loQueSePidio.length = 0;
+	iconosPedidos.length = 0;
 }
