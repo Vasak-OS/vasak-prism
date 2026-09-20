@@ -8,4 +8,6 @@ ventana:
 lanzador:
   escribi: Type to search
   copiar: Enter copies the result
+  buscarEn: "Search on {0}"
+  ejecutar: Enter runs the command
   nada: Nothing by that name

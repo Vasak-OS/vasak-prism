@@ -27,9 +27,24 @@ function fila(titulo: string, accion: string | null = null) {
 		accion,
 		titulo,
 		subtitulo: null,
+		subtituloDato: null,
 		icono: null,
 		puntaje: 100,
 		origen: 'aplicacion' as const,
+	};
+}
+
+/** Una fila de cualquier otro proveedor. */
+function deOtro(origen: 'calculo' | 'emoji' | 'web' | 'comando' | 'reciente' | 'completar', id: string) {
+	return {
+		id,
+		accion: null,
+		titulo: id,
+		subtitulo: null,
+		subtituloDato: null,
+		icono: null,
+		puntaje: 1000,
+		origen,
 	};
 }
 
@@ -40,6 +55,7 @@ function cuenta(resultado: string) {
 		accion: null,
 		titulo: resultado,
 		subtitulo: 'lanzador.copiar',
+		subtituloDato: null,
 		icono: 'accessories-calculator',
 		puntaje: 1000,
 		origen: 'calculo' as const,
@@ -325,6 +341,71 @@ describe('el teclado', () => {
 		expect(copiado?.args.texto).toBe('4');
 		expect(loQueSePidio.filter((uno) => uno.comando === 'lanzar')).toHaveLength(0);
 		expect(seEscondio()).toBe(true);
+	});
+
+	test('cada proveedor hace lo suyo al apretar Enter', async () => {
+		// La fila dice de dónde salió y eso decide qué pasa: un emoji se copia,
+		// una dirección se abre y un comando se ejecuta. Adivinar mirando la
+		// forma del resultado es como se termina con dos lugares que tienen que
+		// estar de acuerdo.
+		const casos = [
+			{ fila: deOtro('emoji', '🔥'), comando: 'copiar', clave: 'texto', valor: '🔥' },
+			{
+				fila: deOtro('web', 'https://duckduckgo.com/?q=gatos'),
+				comando: 'abrir',
+				clave: 'destino',
+				valor: 'https://duckduckgo.com/?q=gatos',
+			},
+			{
+				fila: deOtro('reciente', '/home/pato/notas.md'),
+				comando: 'abrir',
+				clave: 'destino',
+				valor: '/home/pato/notas.md',
+			},
+			{
+				fila: deOtro('comando', 'systemctl --user status'),
+				comando: 'ejecutar',
+				clave: 'comandoEscrito',
+				valor: 'systemctl --user status',
+			},
+		];
+
+		for (const caso of casos) {
+			olvidarTodo();
+			contestar('buscar', async () => [caso.fila]);
+			contestar(caso.comando, async () => undefined);
+			vista?.unmount();
+			vista = mount(Lanzador);
+
+			await escribir('x');
+			await dormir(DESPUES_DE_LA_ESPERA);
+			await asentar();
+			await teclear('Enter');
+			await asentar();
+
+			const pedido = loQueSePidio.find((uno) => uno.comando === caso.comando);
+			expect(pedido?.args[caso.clave], `${caso.fila.origen} tenía que ir a ${caso.comando}`).toBe(
+				caso.valor
+			);
+			expect(loQueSePidio.filter((uno) => uno.comando === 'lanzar')).toHaveLength(0);
+		}
+	});
+
+	test('una fila de completar escribe en el campo y no cierra', async () => {
+		// Un bang a medias: ofrecerle a alguien que siga escribiendo es más útil
+		// que no ofrecerle nada, y cerrar la ventana ahí sería lo contrario de lo
+		// que pidió.
+		contestar('buscar', async () => [deOtro('completar', '!w ')]);
+		vista = mount(Lanzador);
+
+		await escribir('?!w');
+		await dormir(DESPUES_DE_LA_ESPERA);
+		await asentar();
+		await teclear('Enter');
+		await asentar();
+
+		expect((vista.get('input').element as HTMLInputElement).value).toBe('!w ');
+		expect(seEscondio()).toBe(false);
 	});
 
 	test('con la lista vacía las flechas no hacen nada', async () => {

@@ -68,6 +68,7 @@ pub fn resolver(consulta: &str) -> Option<Resultado> {
         // La clave del catálogo de idioma; la traduce la interfaz, que es la
         // que sabe en qué idioma está la sesión.
         subtitulo: Some("lanzador.copiar".to_string()),
+        subtitulo_dato: None,
         icono: Some(ICONO.to_string()),
         puntaje: PUNTAJE,
         origen: Origen::Calculo,

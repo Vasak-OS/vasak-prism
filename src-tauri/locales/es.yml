@@ -17,4 +17,6 @@ ventana:
 lanzador:
   escribi: Escribí para buscar
   copiar: Enter copia el resultado
+  buscarEn: "Buscar en {0}"
+  ejecutar: Enter ejecuta el comando
   nada: No hay nada con ese nombre

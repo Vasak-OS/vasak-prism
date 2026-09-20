@@ -85,6 +85,16 @@ async function elegir(indice: number) {
 	const resultado = resultados.value[indice];
 	if (!resultado) return;
 
+	// Una fila de completar no hace nada: escribe en el campo y deja seguir. Es
+	// para cuando lo escrito todavía no alcanza —un bang a medias— y ofrecerle a
+	// alguien que siga escribiendo es más útil que no ofrecerle nada.
+	if (resultado.origen === 'completar') {
+		consulta.value = resultado.id;
+		campo.value?.focus();
+		await consultar(consulta.value);
+		return;
+	}
+
 	try {
 		await elegirEnElBackend(resultado);
 	} catch (error) {

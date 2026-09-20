@@ -32,6 +32,10 @@ pub struct Estado {
     /// Si en esta máquina hay `systemd-run`. Se mira una vez, al arrancar, y no
     /// en cada lanzamiento.
     pub hay_scope: bool,
+    /// Los archivos abiertos hace poco. La caché los relee sola cuando el
+    /// archivo del escritorio cambia; el candado es porque Tauri atiende cada
+    /// comando en su propio hilo.
+    pub recientes: Mutex<crate::proveedores::recientes::Cache>,
 }
 
 /// Esconde la ventana.
@@ -52,6 +56,12 @@ pub fn buscar(
 ) -> Vec<Resultado> {
     let limite = limite.unwrap_or(LIMITE).min(LIMITE);
 
+    // Un prefijo manda: es una elección explícita de quien escribe, y mezclar
+    // aplicaciones ahí abajo sería ruido.
+    if let Some(filas) = crate::proveedores::por_prefijo(&consulta, limite) {
+        return filas;
+    }
+
     // La cuenta va primera y sin gastar nada: no toca el disco ni la red, y si
     // lo que se escribió no es una, no devuelve fila.
     let calculo = crate::proveedores::calculo::resolver(&consulta);
@@ -64,14 +74,73 @@ pub fn buscar(
 
     let mut filas = estado.catalogo.buscar_con_uso(&consulta, limite, &pesos);
 
-    if let Some(cuenta) = calculo {
-        // Adelante de todo y recortando el último: el límite es cuántas filas
-        // se mandan, no cuántas se buscan.
-        filas.insert(0, cuenta);
-        filas.truncate(limite);
+    // Los recientes se leen del archivo donde el escritorio ya los anota, así
+    // que no hay nada que indexar ni que vigilar. Sólo aparecen si el nombre
+    // coincide: son archivos del usuario, no resultados que se ofrecen solos.
+    {
+        let mut cache = estado.recientes.lock().unwrap_or_else(|e| e.into_inner());
+        filas.extend(crate::proveedores::recientes::buscar(
+            cache.lista(),
+            &consulta,
+            limite,
+        ));
     }
 
+    filas.sort_by(|a, b| {
+        b.puntaje
+            .partial_cmp(&a.puntaje)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.titulo.cmp(&b.titulo))
+    });
+
+    if let Some(cuenta) = calculo {
+        // Adelante de todo: es la respuesta exacta a lo que se escribió.
+        filas.insert(0, cuenta);
+    }
+
+    // El límite es cuántas filas se mandan, no cuántas se buscan.
+    filas.truncate(limite);
     filas
+}
+
+/// Abre una dirección o un archivo con lo que corresponda.
+///
+/// Por `xdg-open`, que es quien sabe cuál es el navegador y con qué se abre un
+/// `.odt`. Y en un ámbito de systemd por lo mismo que las aplicaciones: lo que
+/// se abra no tiene que morirse con el lanzador.
+#[tauri::command]
+pub fn abrir(estado: State<'_, Estado>, destino: String) -> Result<(), String> {
+    let mut argumentos = vec!["xdg-open".to_string(), destino];
+
+    if estado.hay_scope {
+        argumentos = comando::envolver_en_scope(argumentos);
+    }
+
+    comando::lanzar(&argumentos)
+}
+
+/// Ejecuta un comando de shell.
+///
+/// Por `sh -c` y no desarmándolo acá: quien escribe `> ls | wc -l` espera que
+/// las tuberías y las comillas signifiquen lo que significan en una shell.
+#[tauri::command]
+pub fn ejecutar(estado: State<'_, Estado>, comando_escrito: String) -> Result<(), String> {
+    let comando_escrito = comando_escrito.trim();
+    if comando_escrito.is_empty() {
+        return Err("no hay nada que ejecutar".to_string());
+    }
+
+    let mut argumentos = vec![
+        "sh".to_string(),
+        "-c".to_string(),
+        comando_escrito.to_string(),
+    ];
+
+    if estado.hay_scope {
+        argumentos = comando::envolver_en_scope(argumentos);
+    }
+
+    comando::lanzar(&argumentos)
 }
 
 /// Copia un texto al portapapeles.
