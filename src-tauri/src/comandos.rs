@@ -32,6 +32,14 @@ pub struct Estado {
     /// Si en esta máquina hay `systemd-run`. Se mira una vez, al arrancar, y no
     /// en cada lanzamiento.
     pub hay_scope: bool,
+    /// Las secciones de la configuración, leídas una vez al arrancar.
+    ///
+    /// No cambian mientras la sesión vive: las publica el paquete de
+    /// `vasak-settings`, así que sólo cambian al actualizarlo, y ahí el
+    /// lanzador se reinicia con la sesión siguiente.
+    pub secciones: Vec<crate::proveedores::configuracion::Seccion>,
+    /// El idioma de la sesión, para elegir el nombre de cada sección.
+    pub idioma: String,
     /// Los archivos abiertos hace poco. La caché los relee sola cuando el
     /// archivo del escritorio cambia; el candado es porque Tauri atiende cada
     /// comando en su propio hilo.
@@ -74,6 +82,13 @@ pub fn buscar(
 
     let mut filas = estado.catalogo.buscar_con_uso(&consulta, limite, &pesos);
 
+    filas.extend(crate::proveedores::configuracion::buscar(
+        &estado.secciones,
+        &consulta,
+        &estado.idioma,
+        limite,
+    ));
+
     // Los recientes se leen del archivo donde el escritorio ya los anota, así
     // que no hay nada que indexar ni que vigilar. Sólo aparecen si el nombre
     // coincide: son archivos del usuario, no resultados que se ofrecen solos.
@@ -101,6 +116,33 @@ pub fn buscar(
     // El límite es cuántas filas se mandan, no cuántas se buscan.
     filas.truncate(limite);
     filas
+}
+
+/// Abre la configuración en una sección.
+///
+/// Con el identificador como argumento, que es lo que `vasak-settings` entiende:
+/// `vasak-settings network-wifi`. Sin él abriría la portada, que para quien
+/// eligió «Wi-Fi» es lo mismo que no hacer nada.
+#[tauri::command]
+pub fn abrir_configuracion(estado: State<'_, Estado>, seccion: String) -> Result<(), String> {
+    // El identificador sale del archivo que publica la configuración, pero se
+    // comprueba igual antes de meterlo en una línea de comandos: son minúsculas
+    // y guiones, como los nombres del router.
+    if seccion.is_empty()
+        || !seccion
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+    {
+        return Err(format!("«{seccion}» no es un nombre de sección"));
+    }
+
+    let mut argumentos = vec!["vasak-settings".to_string(), seccion];
+
+    if estado.hay_scope {
+        argumentos = comando::envolver_en_scope(argumentos);
+    }
+
+    comando::lanzar(&argumentos)
 }
 
 /// Abre una dirección o un archivo con lo que corresponda.

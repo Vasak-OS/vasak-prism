@@ -10,4 +10,5 @@ lanzador:
   copiar: Enter copies the result
   buscarEn: "Search on {0}"
   ejecutar: Enter runs the command
+  enLaConfiguracion: In settings
   nada: Nothing by that name

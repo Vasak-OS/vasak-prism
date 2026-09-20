@@ -14,6 +14,7 @@ export type Origen =
 	| 'web'
 	| 'emoji'
 	| 'reciente'
+	| 'configuracion'
 	/** No hace nada: completa el campo. Un bang a medias, por ejemplo. */
 	| 'completar';
 
@@ -54,6 +55,10 @@ export function elegir(resultado: Resultado): Promise<void> {
 			return invoke<void>('abrir', { destino: resultado.id });
 		case 'comando':
 			return invoke<void>('ejecutar', { comandoEscrito: resultado.id });
+		case 'configuracion':
+			// El nombre del comando va tal cual lo declara Rust: Tauri convierte
+			// los **argumentos** de camelCase a snake_case, pero no el nombre.
+			return invoke<void>('abrir_configuracion', { seccion: resultado.id });
 		default:
 			return invoke<void>('lanzar', { id: resultado.id, accion: resultado.accion });
 	}

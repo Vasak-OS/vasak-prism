@@ -97,6 +97,8 @@ pub fn run(mostrar_al_arrancar: bool) {
                 uso,
                 hay_scope: lanzador::comando::hay_scope(),
                 recientes: Mutex::new(proveedores::recientes::Cache::nueva()),
+                secciones: proveedores::configuracion::del_disco(),
+                idioma: locales::idioma_del_sistema(),
             });
 
             // La ventana se construye acá, escondida, y no se vuelve a construir
@@ -134,6 +136,7 @@ pub fn run(mostrar_al_arrancar: bool) {
             comandos::copiar,
             comandos::abrir,
             comandos::ejecutar,
+            comandos::abrir_configuracion,
             comandos::esconder
         ])
         .run(tauri::generate_context!())
