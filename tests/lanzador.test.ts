@@ -29,6 +29,20 @@ function fila(titulo: string, accion: string | null = null) {
 		subtitulo: null,
 		icono: null,
 		puntaje: 100,
+		origen: 'aplicacion' as const,
+	};
+}
+
+/** Una fila de cálculo: lo que se copia va en `id`. */
+function cuenta(resultado: string) {
+	return {
+		id: resultado,
+		accion: null,
+		titulo: resultado,
+		subtitulo: 'lanzador.copiar',
+		icono: 'accessories-calculator',
+		puntaje: 1000,
+		origen: 'calculo' as const,
 	};
 }
 
@@ -292,6 +306,25 @@ describe('el teclado', () => {
 		await asentar();
 
 		expect(laVentanaRecibio).not.toContain('hide');
+	});
+
+	test('una cuenta se copia y no se lanza', async () => {
+		// Apretar Enter sobre «4» no puede intentar abrir un programa llamado
+		// «4»: la fila dice de dónde salió y eso decide qué pasa.
+		contestar('buscar', async () => [cuenta('4')]);
+		contestar('copiar', async () => undefined);
+		vista = mount(Lanzador);
+
+		await escribir('2+2');
+		await dormir(DESPUES_DE_LA_ESPERA);
+		await asentar();
+		await teclear('Enter');
+		await asentar();
+
+		const copiado = loQueSePidio.find((uno) => uno.comando === 'copiar');
+		expect(copiado?.args.texto).toBe('4');
+		expect(loQueSePidio.filter((uno) => uno.comando === 'lanzar')).toHaveLength(0);
+		expect(seEscondio()).toBe(true);
 	});
 
 	test('con la lista vacía las flechas no hacen nada', async () => {

@@ -22,7 +22,12 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import ListaDeResultados from '@/componentes/ListaDeResultados.vue';
-import { buscar, esconder, lanzar, type Resultado } from '@/servicios/busqueda';
+import {
+	buscar,
+	elegir as elegirEnElBackend,
+	esconder,
+	type Resultado,
+} from '@/servicios/busqueda';
 
 /** Lo que se espera entre la tecla y la consulta. */
 const ESPERA = 40;
@@ -81,12 +86,12 @@ async function elegir(indice: number) {
 	if (!resultado) return;
 
 	try {
-		await lanzar(resultado);
+		await elegirEnElBackend(resultado);
 	} catch (error) {
 		// Se esconde igual: dejar la ventana abierta con la consulta puesta
 		// parece que no se apretó nada. Lo que falló va al diario y no a la cara
 		// del usuario, que a esta altura ya está mirando otra cosa.
-		console.error('No se pudo lanzar', resultado.id, error);
+		console.error('No se pudo abrir', resultado.id, error);
 	}
 
 	await cerrar();

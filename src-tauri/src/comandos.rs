@@ -52,13 +52,59 @@ pub fn buscar(
 ) -> Vec<Resultado> {
     let limite = limite.unwrap_or(LIMITE).min(LIMITE);
 
+    // La cuenta va primera y sin gastar nada: no toca el disco ni la red, y si
+    // lo que se escribió no es una, no devuelve fila.
+    let calculo = crate::proveedores::calculo::resolver(&consulta);
+
     let pesos = estado
         .uso
         .as_ref()
         .map(|uso| uso.lock().unwrap_or_else(|e| e.into_inner()).pesos())
         .unwrap_or_default();
 
-    estado.catalogo.buscar_con_uso(&consulta, limite, &pesos)
+    let mut filas = estado.catalogo.buscar_con_uso(&consulta, limite, &pesos);
+
+    if let Some(cuenta) = calculo {
+        // Adelante de todo y recortando el último: el límite es cuántas filas
+        // se mandan, no cuántas se buscan.
+        filas.insert(0, cuenta);
+        filas.truncate(limite);
+    }
+
+    filas
+}
+
+/// Copia un texto al portapapeles.
+///
+/// Por `wl-copy` y no por una API de Wayland propia: en esta sesión el
+/// portapapeles es un protocolo privilegiado y el permiso lo tiene `wl-copy`,
+/// que es justo para esto. Pedirlo acá sería pedir un permiso más para hacer lo
+/// mismo.
+#[tauri::command]
+pub fn copiar(texto: String) -> Result<(), String> {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+
+    let mut hijo = Command::new("wl-copy")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|error| format!("no se pudo copiar: {error}"))?;
+
+    hijo.stdin
+        .as_mut()
+        .ok_or("wl-copy no aceptó la entrada")?
+        .write_all(texto.as_bytes())
+        .map_err(|error| format!("no se pudo escribir en wl-copy: {error}"))?;
+
+    // Se espera a que termine: `wl-copy` sin `--foreground` se va al fondo solo,
+    // así que esto vuelve enseguida, y no esperarlo dejaría un zombi por cada
+    // número copiado.
+    hijo.wait()
+        .map_err(|error| format!("wl-copy terminó mal: {error}"))?;
+
+    Ok(())
 }
 
 #[tauri::command]

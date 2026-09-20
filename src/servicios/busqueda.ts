@@ -1,7 +1,17 @@
 import { invoke } from '@tauri-apps/api/core';
 
+/**
+ * De dónde salió una fila.
+ *
+ * Decide qué pasa al apretar Enter. Lo manda el backend en vez de dejar que la
+ * interfaz lo adivine mirando la forma del resultado, que es como se termina
+ * con dos lugares que tienen que estar de acuerdo.
+ */
+export type Origen = 'aplicacion' | 'calculo';
+
 /** Una fila de la lista de resultados, tal cual la manda el backend. */
 export interface Resultado {
+	/** La aplicación, o el texto a copiar cuando la fila es una cuenta. */
 	id: string;
 	/** La acción de la entrada, si la fila es una acción y no la aplicación. */
 	accion: string | null;
@@ -10,13 +20,24 @@ export interface Resultado {
 	/** El **nombre** del icono en el tema, nunca una ruta. */
 	icono: string | null;
 	puntaje: number;
+	origen: Origen;
 }
 
 export function buscar(consulta: string, limite?: number): Promise<Resultado[]> {
 	return invoke<Resultado[]>('buscar', { consulta, limite });
 }
 
-export function lanzar(resultado: Resultado): Promise<void> {
+/**
+ * Hace lo que corresponda con la fila elegida: abrir o copiar.
+ *
+ * El `switch` está acá y no en la vista porque es lo que sabe de la forma de un
+ * resultado; la vista sólo sabe que se eligió uno.
+ */
+export function elegir(resultado: Resultado): Promise<void> {
+	if (resultado.origen === 'calculo') {
+		return invoke<void>('copiar', { texto: resultado.id });
+	}
+
 	return invoke<void>('lanzar', { id: resultado.id, accion: resultado.accion });
 }
 

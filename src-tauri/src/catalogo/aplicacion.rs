@@ -83,6 +83,18 @@ impl Aplicacion {
     }
 }
 
+/// De dónde salió una fila.
+///
+/// Decide qué pasa al apretar Enter —abrir un programa no es lo mismo que
+/// copiar un número— y se manda al frontend para que no tenga que adivinarlo
+/// mirando la forma del resultado.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Origen {
+    Aplicacion,
+    Calculo,
+}
+
 /// Una fila de la lista de resultados.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -95,6 +107,7 @@ pub struct Resultado {
     pub subtitulo: Option<String>,
     pub icono: Option<String>,
     pub puntaje: f64,
+    pub origen: Origen,
 }
 
 /// Los resultados que esta aplicación aporta para una consulta: ella y las
@@ -118,6 +131,7 @@ pub fn resultados(aplicacion: &Aplicacion, consulta: &str) -> Vec<Resultado> {
                 .or_else(|| aplicacion.generico.clone()),
             icono: aplicacion.icono.clone(),
             puntaje: propio,
+            origen: Origen::Aplicacion,
         });
     }
 
@@ -136,6 +150,7 @@ pub fn resultados(aplicacion: &Aplicacion, consulta: &str) -> Vec<Resultado> {
                 subtitulo: Some(aplicacion.nombre.clone()),
                 icono: accion.icono.clone().or_else(|| aplicacion.icono.clone()),
                 puntaje: puntaje_final,
+                origen: Origen::Aplicacion,
             });
         }
     }

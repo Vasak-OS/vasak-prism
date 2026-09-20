@@ -8,6 +8,7 @@ pub mod catalogo;
 pub mod comandos;
 pub mod lanzador;
 mod locales;
+pub mod proveedores;
 pub mod servicio;
 pub mod ventana;
 
@@ -129,6 +130,7 @@ pub fn run(mostrar_al_arrancar: bool) {
         .invoke_handler(tauri::generate_handler![
             comandos::buscar,
             comandos::lanzar,
+            comandos::copiar,
             comandos::esconder
         ])
         .run(tauri::generate_context!())
