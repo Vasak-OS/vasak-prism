@@ -7,4 +7,5 @@ ventana:
   cerrar: Close
 lanzador:
   escribi: Type to search
+  copiar: Enter copies the result
   nada: Nothing by that name
