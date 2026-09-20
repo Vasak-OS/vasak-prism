@@ -16,7 +16,7 @@
 /// Son resultados por derecho propio. Un lanzador que sólo ofrece «Firefox»
 /// obliga a abrir el navegador y después buscar el menú; uno que ofrece
 /// «Firefox — Ventana privada» te deja en el lugar.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Accion {
     pub id: String,
     pub nombre: String,

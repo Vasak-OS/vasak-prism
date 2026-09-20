@@ -27,11 +27,15 @@ pagaba el arranque completo de un WebView cada vez. El objetivo es **menos de
 reposo: sin temporizadores, sólo inotify y el atajo.
 
 **El índice está antes de la primera letra.** Las aplicaciones se parsean una
-vez, con el icono ya resuelto, y quedan en `$XDG_CACHE_HOME/vasak-prism/`. Se
-invalidan por inotify con coalescencia de ráfagas, no por reloj: instalar algo y
-esperar cinco minutos a que aparezca es lo que hacía la versión anterior.
-Resolver los iconos al pintar, en vez de al indexar, es el otro asesino clásico
-de estos lanzadores.
+vez y quedan en `$XDG_CACHE_HOME/vasak-prism/`. El arranque tiene tres tiempos:
+se lee la caché y con eso ya se puede contestar, se revalida en otro hilo, y de
+ahí en adelante avisa inotify con coalescencia de ráfagas. Por reloj no: instalar
+algo y esperar cinco minutos a que aparezca es lo que hacía la versión anterior,
+y releía quinientos archivos seis veces por hora aunque no hubiera cambiado nada.
+
+Los **iconos** son la otra mitad de esto, y no se guardan resueltos: son
+megabytes y el tema se cambia en caliente. Lo que hay que resolver son los ocho
+que se ven, memorizando por nombre. Está medido y anotado en el issue #15.
 
 **Todo el procesamiento es de Rust.** El frontend pinta y navega; no busca, no
 ordena, no lee el disco. Los proveedores corren en paralelo con un presupuesto de
