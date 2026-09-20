@@ -58,13 +58,16 @@ WebView abre vacío.
 
 ## Cómo está armado
 
-| carpeta | qué hay |
-|---|---|
-| `src/` | la interfaz, con `@vasakgroup/vue-libvasak` |
-| `src-tauri/src/` | el índice, los proveedores, el ranking y el daemon |
-| `src-tauri/locales/` | los catálogos de idioma, uno por idioma |
-| `packaging/` | la entrada del escritorio, y más adelante la unidad de systemd |
-| `tests/`, `src-tauri/tests/` | las pruebas de cada lado |
+Hoy es la plantilla con el nombre puesto, así que la mitad de esto es dónde van
+a ir las cosas y no lo que ya está. La columna de la derecha lo dice.
+
+| carpeta | qué hay hoy | qué va a vivir ahí |
+|---|---|---|
+| `src/` | la ventana de la plantilla | la interfaz del lanzador, con `@vasakgroup/vue-libvasak` |
+| `src-tauri/src/` | el arranque y los catálogos de idioma | el índice, los proveedores, el ranking y el daemon |
+| `src-tauri/locales/` | los catálogos, uno por idioma | lo mismo |
+| `packaging/` | la entrada del escritorio | también la unidad de systemd y la activación por D-Bus |
+| `tests/`, `src-tauri/tests/` | las pruebas de cada lado | lo mismo |
 
 El nombre del programa aparece en cinco archivos que no dependen entre sí
 (`package.json`, `Cargo.toml`, `tauri.conf.json`, `index.html`, `main.rs`) más la
