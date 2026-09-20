@@ -16,6 +16,11 @@ import { contestar, emitir, laVentanaRecibio, loQueSePidio, olvidarTodo } from '
 /** Más que la espera del lanzador, que es de 40 ms. */
 const DESPUES_DE_LA_ESPERA = 80;
 
+/** Si se le pidió al backend que esconda la ventana. */
+function seEscondio() {
+	return loQueSePidio.some((uno) => uno.comando === 'esconder');
+}
+
 function fila(titulo: string, accion: string | null = null) {
 	return {
 		id: `${titulo}.desktop`,
@@ -153,6 +158,50 @@ describe('buscar', () => {
 	});
 });
 
+describe('cuando la ventana vuelve a aparecer', () => {
+	test('queda como recién abierta', async () => {
+		// La ventana se construye al levantar la sesión y vive escondida: el
+		// montaje pasa una vez y la apertura, cientos. Sin limpiar al aparecer,
+		// el lanzador se abre con lo que se escribió la vez anterior.
+		contestar('buscar', async () => [fila('Firefox')]);
+		vista = mount(Lanzador);
+
+		await escribir('fire');
+		await dormir(DESPUES_DE_LA_ESPERA);
+		await asentar();
+		expect(vista.text()).toContain('Firefox');
+
+		await emitir('prism:mostrada');
+		await asentar();
+
+		expect((vista.get('input').element as HTMLInputElement).value).toBe('');
+		expect(vista.text()).not.toContain('Firefox');
+	});
+
+	test('y una respuesta de antes de cerrar no aparece después', async () => {
+		// La consulta que quedó en vuelo al esconder la ventana contesta cuando
+		// ya se reabrió: sin descartarla, aparecen los resultados de la búsqueda
+		// anterior sobre un campo vacío.
+		let contestarLaDeAntes = () => {};
+		contestar('buscar', async () => {
+			return new Promise((listo) => {
+				contestarLaDeAntes = () => listo([fila('Lo de antes')]);
+			});
+		});
+
+		vista = mount(Lanzador);
+		await escribir('fire');
+		await dormir(DESPUES_DE_LA_ESPERA);
+
+		await emitir('prism:mostrada');
+		await asentar();
+		contestarLaDeAntes();
+		await asentar();
+
+		expect(vista.text()).not.toContain('Lo de antes');
+	});
+});
+
 describe('el teclado', () => {
 	async function conTres() {
 		contestar('buscar', async () => [fila('Uno'), fila('Dos'), fila('Tres')]);
@@ -205,7 +254,7 @@ describe('el teclado', () => {
 
 		const lanzada = loQueSePidio.find((uno) => uno.comando === 'lanzar');
 		expect(lanzada?.args.id).toBe('Dos.desktop');
-		expect(laVentanaRecibio).toContain('hide');
+		expect(seEscondio()).toBe(true);
 	});
 
 	test('y la esconde también si el lanzamiento falla', async () => {
@@ -218,7 +267,7 @@ describe('el teclado', () => {
 		await teclear('Enter');
 		await asentar();
 
-		expect(laVentanaRecibio).toContain('hide');
+		expect(seEscondio()).toBe(true);
 	});
 
 	test('Escape esconde y deja el campo limpio', async () => {
@@ -229,9 +278,20 @@ describe('el teclado', () => {
 		await teclear('Escape');
 		await asentar();
 
-		expect(laVentanaRecibio).toContain('hide');
-		expect(laVentanaRecibio).not.toContain('close');
+		expect(seEscondio()).toBe(true);
 		expect((vista?.get('input').element as HTMLInputElement).value).toBe('');
+	});
+
+	test('esconder pasa por el backend y no por la ventana de Tauri', async () => {
+		// Lo que se ve es la superficie de capa a la que se mudó el WebView; el
+		// armazón de Tauri está escondido y vacío desde que arrancó, así que
+		// esconderlo a él no hace nada visible.
+		await conTres();
+
+		await teclear('Escape');
+		await asentar();
+
+		expect(laVentanaRecibio).not.toContain('hide');
 	});
 
 	test('con la lista vacía las flechas no hacen nada', async () => {

@@ -1,0 +1,24 @@
+[Unit]
+Description=Prism, el lanzador de VasakOS
+Documentation=https://github.com/Vasak-OS/vasak-prism
+# Parte de la sesión gráfica: se va con ella. Sin esto queda un proceso con un
+# WebView adentro después de cerrar sesión, y el de la sesión siguiente no puede
+# tomar el nombre en el bus.
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+# `dbus` y no `simple`: systemd da el servicio por arrancado cuando el nombre
+# está tomado, no cuando el proceso existe. Es la diferencia entre que el primer
+# atajo funcione y que se pierda porque el WebView todavía estaba abriendo.
+Type=dbus
+BusName=ar.net.vasak.Prism
+ExecStart=/usr/bin/vasak-prism --daemon
+# `--daemon` es lo que lo deja con la ventana escondida. Sin ese argumento el
+# lanzador se abriría en la cara al iniciar sesión.
+Restart=on-failure
+RestartSec=2
+Slice=session.slice
+
+[Install]
+WantedBy=graphical-session.target

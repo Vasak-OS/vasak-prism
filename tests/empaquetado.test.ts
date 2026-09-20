@@ -17,22 +17,33 @@ import { describe, expect, test } from 'bun:test';
 
 const RAIZ = new URL('..', import.meta.url);
 const ENTRADA = 'packaging/vasak-prism.desktop';
+const UNIDAD = 'packaging/vasak-prism.service';
+const ACTIVACION = 'packaging/ar.net.vasak.Prism.service';
+/** El nombre que el daemon toma en el bus. Está en `src-tauri/src/servicio.rs`. */
+const BUS = 'ar.net.vasak.Prism';
 
 const configuracion = JSON.parse(
 	await Bun.file(new URL('src-tauri/tauri.conf.json', RAIZ)).text()
 );
 const entrada = await Bun.file(new URL(ENTRADA, RAIZ)).text();
+const unidad = await Bun.file(new URL(UNIDAD, RAIZ)).text();
+const activacion = await Bun.file(new URL(ACTIVACION, RAIZ)).text();
+
+/** Las claves de un archivo tipo INI, sin los comentarios ni las secciones. */
+function clavesDe(texto: string) {
+	return new Map(
+		texto
+			.split('\n')
+			.filter((linea) => !linea.startsWith('#') && linea.includes('='))
+			.map((linea) => {
+				const corte = linea.indexOf('=');
+				return [linea.slice(0, corte), linea.slice(corte + 1)];
+			})
+	);
+}
 
 /** Las claves del `.desktop`, sin los comentarios. */
-const claves = new Map(
-	entrada
-		.split('\n')
-		.filter((linea) => !linea.startsWith('#') && linea.includes('='))
-		.map((linea) => {
-			const corte = linea.indexOf('=');
-			return [linea.slice(0, corte), linea.slice(corte + 1)];
-		})
-);
+const claves = clavesDe(entrada);
 
 describe('el nombre del programa', () => {
 	test('es el mismo en los manifiestos que se empaquetan', async () => {
@@ -169,5 +180,52 @@ describe('la entrada del escritorio', () => {
 		// errores; lo que no puede haber es un «error:».
 		expect(dijo).not.toContain('error:');
 		expect(corrida.exitCode).toBe(0);
+	});
+});
+
+describe('el daemon', () => {
+	const unidadClaves = clavesDe(unidad);
+	const activacionClaves = clavesDe(activacion);
+
+	test('la unidad arranca el binario que el paquete instala', () => {
+		// Lo mismo que la entrada del escritorio: renombrar el programa y
+		// olvidarse de acá deja una unidad que no arranca nada, y systemd lo
+		// dice en un log que nadie mira.
+		expect(unidadClaves.get('ExecStart')).toBe(`/usr/bin/${configuracion.productName} --daemon`);
+	});
+
+	test('y lo arranca con la ventana escondida', () => {
+		// Sin `--daemon` el lanzador se abriría en la cara al iniciar sesión.
+		expect(unidadClaves.get('ExecStart')).toContain('--daemon');
+	});
+
+	test('systemd espera al nombre del bus y no al proceso', () => {
+		// `Type=dbus` es la diferencia entre que el primer atajo funcione y que
+		// se pierda porque el WebView todavía estaba abriendo.
+		expect(unidadClaves.get('Type')).toBe('dbus');
+		expect(unidadClaves.get('BusName')).toBe(BUS);
+	});
+
+	test('se va con la sesión gráfica', () => {
+		// Sin esto queda un proceso con un WebView adentro después de cerrar
+		// sesión, y el de la sesión siguiente no puede tomar el nombre en el bus.
+		expect(unidadClaves.get('PartOf')).toBe('graphical-session.target');
+		expect(unidadClaves.get('WantedBy')).toBe('graphical-session.target');
+	});
+
+	test('la activación por D-Bus nombra al mismo servicio', () => {
+		// Tres archivos que dicen el mismo nombre en tres formatos distintos. Si
+		// uno se desincroniza, el bus levanta algo que no toma el nombre que el
+		// bus está esperando, y el atajo se cuelga hasta que expira.
+		expect(activacionClaves.get('Name')).toBe(BUS);
+		expect(activacionClaves.get('SystemdService')).toBe('vasak-prism.service');
+		expect(activacionClaves.get('Exec')).toBe(unidadClaves.get('ExecStart'));
+	});
+
+	test('y el nombre es el que el código toma', async () => {
+		// La cuarta copia del nombre, que es la que manda: si el código toma
+		// otro, systemd espera para siempre un nombre que nadie va a tomar.
+		const servicio = await Bun.file(new URL('src-tauri/src/servicio.rs', RAIZ)).text();
+		expect(servicio).toContain(`pub const NOMBRE: &str = "${BUS}"`);
 	});
 });

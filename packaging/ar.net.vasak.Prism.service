@@ -1,0 +1,9 @@
+# Activación por D-Bus: si alguien le habla al lanzador y no está corriendo, el
+# bus lo levanta. Es la red de seguridad de la unidad de systemd — una sesión
+# que no la haya levantado, o un servicio que se cayó, no dejan el atajo muerto.
+[D-BUS Service]
+Name=ar.net.vasak.Prism
+Exec=/usr/bin/vasak-prism --daemon
+# Con esto el bus se lo pide a systemd en vez de arrancarlo por su cuenta, así
+# el proceso queda en el cgroup de la sesión y no colgando del bus.
+SystemdService=vasak-prism.service
