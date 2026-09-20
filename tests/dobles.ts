@@ -12,6 +12,8 @@ export function getCurrentWindow() {
 		minimize: async () => void laVentanaRecibio.push('minimize'),
 		toggleMaximize: async () => void laVentanaRecibio.push('toggleMaximize'),
 		close: async () => void laVentanaRecibio.push('close'),
+		hide: async () => void laVentanaRecibio.push('hide'),
+		show: async () => void laVentanaRecibio.push('show'),
 	};
 }
 
@@ -35,12 +37,47 @@ export function useConfigStore() {
 	return { config: configuracion, loadConfig: async () => {} };
 }
 
-export async function invoke(_comando: string) {
-	return undefined;
+/**
+ * Lo que contesta cada comando del backend.
+ *
+ * Una función y no un valor para poder decidir desde la prueba **cuándo**
+ * contesta: las carreras que el lanzador tiene que aguantar —una respuesta vieja
+ * que llega última— sólo se pueden comprobar así.
+ */
+const respuestas = new Map<string, (args: Record<string, unknown>) => Promise<unknown>>();
+
+/** Lo que se le pidió al backend, en orden. */
+export const loQueSePidio: { comando: string; args: Record<string, unknown> }[] = [];
+
+export function contestar(
+	comando: string,
+	como: (args: Record<string, unknown>) => Promise<unknown>
+) {
+	respuestas.set(comando, como);
 }
 
-export async function listen(_nombre: string, _manejador: () => unknown) {
-	return () => {};
+export async function invoke(comando: string, args: Record<string, unknown> = {}) {
+	loQueSePidio.push({ comando, args });
+	const como = respuestas.get(comando);
+	return como ? await como(args) : undefined;
+}
+
+const oyentes = new Map<string, Set<() => unknown>>();
+
+export async function listen(nombre: string, manejador: () => unknown) {
+	const suyos = oyentes.get(nombre) ?? new Set<() => unknown>();
+	suyos.add(manejador);
+	oyentes.set(nombre, suyos);
+	return () => {
+		suyos.delete(manejador);
+	};
+}
+
+/** Emite un evento del escritorio y espera a que lo atiendan. */
+export async function emitir(nombre: string) {
+	for (const manejador of [...(oyentes.get(nombre) ?? [])]) {
+		await manejador();
+	}
 }
 
 export async function getIconSource(_nombre: string) {
@@ -54,4 +91,7 @@ export async function getSymbolSource(_nombre: string) {
 export function olvidarTodo() {
 	laVentanaRecibio.length = 0;
 	configuracion = {};
+	respuestas.clear();
+	oyentes.clear();
+	loQueSePidio.length = 0;
 }

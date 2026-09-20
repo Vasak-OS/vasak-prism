@@ -16,7 +16,7 @@ const EMPIEZA: f64 = 90.0;
 /// Alguna palabra del texto empieza con lo escrito: «fire» para «Mozilla Firefox».
 const PALABRA: f64 = 80.0;
 /// El texto contiene lo escrito en algún lado.
-const CONTIENE: f64 = 65.0;
+pub const CONTIENE: f64 = 65.0;
 /// Las letras aparecen en orden pero salteadas. El piso, y con castigo.
 const SALTEADO: f64 = 50.0;
 

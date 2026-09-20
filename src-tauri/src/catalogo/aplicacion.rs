@@ -14,6 +14,14 @@ use super::puntaje;
 const PESO_GENERICO: f64 = 0.90;
 const PESO_PALABRAS: f64 = 0.85;
 const PESO_COMENTARIO: f64 = 0.60;
+/// Lo que tiene que valer una coincidencia en la descripción para contar.
+///
+/// Las descripciones son frases largas, y en una frase larga las letras de
+/// cualquier consulta corta aparecen en orden en algún lado: probando el
+/// lanzador, «ire» traía Contactos, Discord y el editor de textos, todas por la
+/// `i`, la `r` y la `e` de sus descripciones. Así que de la descripción sólo
+/// cuenta una coincidencia de verdad —que la contenga—, no una salteada.
+const MINIMO_EN_COMENTARIO: f64 = puntaje::CONTIENE;
 /// Una acción vale un poco menos que su aplicación, para que «firefox» ofrezca
 /// primero Firefox y después sus ventanas.
 const PESO_ACCION: f64 = 0.95;
@@ -65,7 +73,10 @@ impl Aplicacion {
         }
 
         if let Some(comentario) = &self.comentario {
-            mejor = mejor.max(puntaje::puntaje(consulta, comentario) * PESO_COMENTARIO);
+            let suyo = puntaje::puntaje(consulta, comentario);
+            if suyo >= MINIMO_EN_COMENTARIO {
+                mejor = mejor.max(suyo * PESO_COMENTARIO);
+            }
         }
 
         mejor
@@ -161,6 +172,28 @@ mod tests {
         let navegador = una("Navegador");
 
         assert!(navegador.puntaje("navegador") > firefox.puntaje("navegador"));
+    }
+
+    #[test]
+    fn una_frase_larga_no_coincide_con_cualquier_cosa() {
+        // Lo que apareció al probar el lanzador de verdad: «ire» traía Contactos,
+        // Discord y el editor de textos, todas por la `i`, la `r` y la `e`
+        // sueltas de sus descripciones. En una frase larga están las letras de
+        // cualquier consulta corta.
+        let mut contactos = una("Contactos");
+        contactos.comentario = Some("Mirá los contactos de tus cuentas conectadas".to_string());
+
+        assert_eq!(contactos.puntaje("ire"), 0.0);
+    }
+
+    #[test]
+    fn pero_una_descripcion_que_lo_dice_sigue_contando() {
+        // Que «navegador» encuentre a Firefox es la mitad de para qué se mira la
+        // descripción.
+        let mut firefox = una("Firefox");
+        firefox.comentario = Some("Navegador web".to_string());
+
+        assert!(firefox.puntaje("navegador") > 0.0);
     }
 
     #[test]

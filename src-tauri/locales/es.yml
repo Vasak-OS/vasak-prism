@@ -14,8 +14,6 @@ ventana:
   minimizar: Minimizar
   maximizar: Maximizar
   cerrar: Cerrar
-inicio:
-  titulo: Hola, VasakOS
-  descripcion: Esta es la plantilla. Reemplazá esta pantalla por la tuya.
-  # `t()` no interpola: el marcador se reemplaza a mano. Ver el README.
-  saludo: "Hola, {0}"
+lanzador:
+  escribi: Escribí para buscar
+  nada: No hay nada con ese nombre
