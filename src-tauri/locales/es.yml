@@ -19,4 +19,5 @@ lanzador:
   copiar: Enter copia el resultado
   buscarEn: "Buscar en {0}"
   ejecutar: Enter ejecuta el comando
+  enLaConfiguracion: En la configuración
   nada: No hay nada con ese nombre

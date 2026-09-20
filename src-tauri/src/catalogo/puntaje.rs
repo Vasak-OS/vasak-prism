@@ -52,13 +52,52 @@ fn plegar(c: char) -> impl Iterator<Item = char> {
 ///
 /// Los dos se normalizan acá: quien llama no tiene que acordarse, y olvidarse
 /// es un error que no da ningún síntoma más que resultados que no aparecen.
+///
+/// Si no coincide con nada, se prueba otra vez **sin los separadores**: «Wi-Fi»
+/// se escribe «wifi», «Audio salida» se busca como «audiosalida», y sin esto la
+/// sección más buscada de la configuración no aparecía. Va como segundo intento
+/// y no como normalización de entrada para no perder la diferencia entre una
+/// coincidencia de palabra entera y una que junta dos.
 pub fn puntaje(consulta: &str, texto: &str) -> f64 {
+    let directo = puntaje_directo(consulta, texto);
+    if directo > 0.0 {
+        return directo;
+    }
+
+    let sin_separadores = |texto: &str| -> String {
+        normalizar(texto)
+            .chars()
+            .filter(|c| c.is_alphanumeric())
+            .collect()
+    };
+
+    let consulta = sin_separadores(consulta);
+    let texto = sin_separadores(texto);
+
+    if consulta.is_empty() || texto.is_empty() {
+        return 0.0;
+    }
+
+    // Un escalón menos que la coincidencia directa: juntar las palabras es una
+    // ayuda, no una coincidencia mejor que la de quien las escribió bien.
+    puntaje_de_normalizados(&consulta, &texto) * 0.95
+}
+
+fn puntaje_directo(consulta: &str, texto: &str) -> f64 {
     let consulta = normalizar(consulta.trim());
     let texto = normalizar(texto);
 
     if consulta.is_empty() || texto.is_empty() {
         return 0.0;
     }
+
+    puntaje_de_normalizados(&consulta, &texto)
+}
+
+/// El puntaje de dos textos ya normalizados.
+fn puntaje_de_normalizados(consulta: &str, texto: &str) -> f64 {
+    let consulta = consulta.to_string();
+    let texto = texto.to_string();
 
     if texto == consulta {
         return EXACTO;
@@ -165,6 +204,28 @@ mod tests {
     #[test]
     fn cuanto_mas_juntas_las_letras_mas_vale() {
         assert!(puntaje("gim", "gimp x") > puntaje("gim", "g i m"));
+    }
+
+    #[test]
+    fn los_separadores_no_hacen_falta_escribirlos() {
+        // «Wi-Fi» se escribe «wifi». Sin esto, la sección más buscada de la
+        // configuración no aparecía.
+        assert!(puntaje("wifi", "Wi-Fi") > 0.0);
+        assert!(puntaje("audiosalida", "Audio salida") > 0.0);
+        assert!(puntaje("fechayhora", "Fecha y hora") > 0.0);
+    }
+
+    #[test]
+    fn pero_escribirlos_bien_vale_mas() {
+        // Juntar las palabras es una ayuda, no una coincidencia mejor que la de
+        // quien las escribió como son.
+        assert!(puntaje("wi-fi", "Wi-Fi") > puntaje("wifi", "Wi-Fi"));
+    }
+
+    #[test]
+    fn juntar_las_palabras_no_inventa_coincidencias() {
+        // Lo que no está sigue sin estar por mucho que se saquen los guiones.
+        assert_eq!(puntaje("zzz", "Wi-Fi"), 0.0);
     }
 
     #[test]

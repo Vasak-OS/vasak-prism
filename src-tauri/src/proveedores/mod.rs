@@ -22,6 +22,7 @@
 //! necesitar contestar por partes.
 
 pub mod calculo;
+pub mod configuracion;
 pub mod emoji;
 pub mod expresion;
 pub mod recientes;

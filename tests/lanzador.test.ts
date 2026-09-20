@@ -35,7 +35,10 @@ function fila(titulo: string, accion: string | null = null) {
 }
 
 /** Una fila de cualquier otro proveedor. */
-function deOtro(origen: 'calculo' | 'emoji' | 'web' | 'comando' | 'reciente' | 'completar', id: string) {
+function deOtro(
+	origen: 'calculo' | 'emoji' | 'web' | 'comando' | 'reciente' | 'completar' | 'configuracion',
+	id: string
+) {
 	return {
 		id,
 		accion: null,
@@ -367,6 +370,12 @@ describe('el teclado', () => {
 				comando: 'ejecutar',
 				clave: 'comandoEscrito',
 				valor: 'systemctl --user status',
+			},
+			{
+				fila: deOtro('configuracion', 'network-wifi'),
+				comando: 'abrir_configuracion',
+				clave: 'seccion',
+				valor: 'network-wifi',
 			},
 		];
 
