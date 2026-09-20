@@ -50,7 +50,30 @@ function resultado(titulo: string, icono: string | null): Resultado {
 	};
 }
 
+/** Lo que mide una fila, igual que en el componente. */
+const ALTO_DE_FILA = 56;
+/** Cuántas entran en la ventana que finge esta prueba. */
+const FILAS_QUE_ENTRAN = 8;
+/** El colchón que dibuja el componente arriba y abajo. */
+const COLCHON = 3;
+
 let montada: VueWrapper | null = null;
+let altoOriginal: PropertyDescriptor | undefined;
+
+/**
+ * Le da un alto a la caja.
+ *
+ * Sin esto `clientHeight` es cero —happy-dom no hace maquetado— y la ventana
+ * visible sale de una cuenta que nadie eligió: la prueba pasaría por el número
+ * equivocado y dejaría de pasar el día que cambie el colchón.
+ */
+function conLaVentanaDe(filas: number) {
+	altoOriginal = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight');
+	Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+		configurable: true,
+		get: () => filas * ALTO_DE_FILA,
+	});
+}
 
 function montar(resultados: Resultado[]) {
 	montada = mount(ListaDeResultados, { props: { resultados, elegida: 0 } });
@@ -67,19 +90,31 @@ beforeEach(() => {
 afterEach(() => {
 	montada?.unmount();
 	montada = null;
+
+	if (altoOriginal) {
+		Object.defineProperty(HTMLElement.prototype, 'clientHeight', altoOriginal);
+		altoOriginal = undefined;
+	}
 });
 
 describe('los iconos de la lista', () => {
-	test('cincuenta resultados no son cincuenta pedidos', async () => {
+	test('cincuenta resultados piden catorce iconos', async () => {
 		// Cada uno con su icono distinto: lo único que puede bajar la cuenta es
-		// que no se dibujen las filas que no se ven.
+		// que no se dibujen las filas que no se ven. Catorce y no «menos de
+		// cincuenta» porque el número es el que se quiere: las ocho que entran
+		// más el colchón de tres de cada lado, y nada más.
+		conLaVentanaDe(FILAS_QUE_ENTRAN);
 		const muchos = Array.from({ length: 50 }, (_, i) => resultado(`app-${i}`, `icono-${i}`));
 
 		montar(muchos);
 		await asentar();
 
-		expect(iconosPedidos.length).toBeGreaterThan(0);
-		expect(iconosPedidos.length).toBeLessThan(muchos.length);
+		const esperados = FILAS_QUE_ENTRAN + COLCHON * 2;
+		expect(iconosPedidos).toHaveLength(esperados);
+		// Y son los de arriba de todo, que son los que se ven.
+		expect(iconosPedidos.slice().sort()).toEqual(
+			Array.from({ length: esperados }, (_, i) => `icono-${i}`).sort()
+		);
 	});
 
 	test('diez filas de la misma aplicación son un pedido', async () => {
