@@ -53,9 +53,7 @@ fn codigo_de_idioma(locale: &str) -> Option<String> {
     if codigo.is_empty() {
         return None;
     }
-    SOPORTADOS
-        .contains(&codigo)
-        .then(|| codigo.to_string())
+    SOPORTADOS.contains(&codigo).then(|| codigo.to_string())
 }
 
 #[cfg(test)]

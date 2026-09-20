@@ -3,6 +3,7 @@
 //! Lo que hay acá no es decoración: cada pieza resuelve algo que en las
 //! aplicaciones reales del escritorio se rompió al menos una vez.
 
+pub mod catalogo;
 mod locales;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
