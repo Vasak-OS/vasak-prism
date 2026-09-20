@@ -4,6 +4,7 @@
 //! aplicaciones reales del escritorio se rompió al menos una vez.
 
 pub mod catalogo;
+pub mod lanzador;
 mod locales;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

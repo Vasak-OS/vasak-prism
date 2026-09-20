@@ -15,9 +15,11 @@ pub mod cache;
 pub mod entrada;
 pub mod escaneo;
 pub mod exec;
+pub mod frecuencia;
 pub mod puntaje;
 pub mod vigilancia;
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
@@ -128,6 +130,15 @@ impl Catalogo {
     pub fn buscar(&self, consulta: &str, limite: usize) -> Vec<Resultado> {
         buscar(&self.aplicaciones(), consulta, limite)
     }
+
+    pub fn buscar_con_uso(
+        &self,
+        consulta: &str,
+        limite: usize,
+        pesos: &HashMap<String, f64>,
+    ) -> Vec<Resultado> {
+        buscar_con_uso(&self.aplicaciones(), consulta, limite, pesos)
+    }
 }
 
 /// Los mejores `limite` resultados para la consulta.
@@ -135,6 +146,20 @@ impl Catalogo {
 /// Función suelta y no método para poder probarla con una lista escrita a mano,
 /// que es lo único que hace falta para comprobar el orden.
 pub fn buscar(aplicaciones: &[Aplicacion], consulta: &str, limite: usize) -> Vec<Resultado> {
+    buscar_con_uso(aplicaciones, consulta, limite, &HashMap::new())
+}
+
+/// Igual, pero levantando lo que se usa seguido.
+///
+/// El empuje se aplica **antes** de recortar a `limite`: al revés, lo más usado
+/// tendría que entrar primero entre los mejores por texto para poder subir, que
+/// es justo cuando no hace falta.
+pub fn buscar_con_uso(
+    aplicaciones: &[Aplicacion],
+    consulta: &str,
+    limite: usize,
+    pesos: &HashMap<String, f64>,
+) -> Vec<Resultado> {
     if consulta.trim().is_empty() {
         return Vec::new();
     }
@@ -142,6 +167,12 @@ pub fn buscar(aplicaciones: &[Aplicacion], consulta: &str, limite: usize) -> Vec
     let mut resultados: Vec<Resultado> = aplicaciones
         .iter()
         .flat_map(|app| aplicacion::resultados(app, consulta))
+        .map(|mut fila| {
+            let clave = frecuencia::clave(&fila.id, fila.accion.as_deref());
+            let peso = pesos.get(&clave).copied().unwrap_or(0.0);
+            fila.puntaje = frecuencia::con_uso(fila.puntaje, peso);
+            fila
+        })
         .collect();
 
     // Por puntaje, y a igual puntaje por título: sin el desempate, dos
@@ -211,6 +242,31 @@ mod tests {
 
         assert_eq!(primera, segunda);
         assert_eq!(primera[0].titulo, "Aaa");
+    }
+
+    #[test]
+    fn lo_que_se_usa_seguido_sube() {
+        let apps = [una("Archivo uno"), una("Archivo dos")];
+        let mut pesos = HashMap::new();
+        pesos.insert("Archivo dos.desktop".to_string(), 1.0);
+
+        let filas = buscar_con_uso(&apps, "archivo", 10, &pesos);
+
+        assert_eq!(filas[0].titulo, "Archivo dos");
+    }
+
+    #[test]
+    fn el_empuje_se_aplica_antes_de_recortar() {
+        // Al revés, lo más usado tendría que entrar primero entre los mejores
+        // por texto para poder subir — que es justo cuando ya no hace falta.
+        let apps = [una("Archivo a"), una("Archivo b"), una("Archivo c")];
+        let mut pesos = HashMap::new();
+        pesos.insert("Archivo c.desktop".to_string(), 1.0);
+
+        let filas = buscar_con_uso(&apps, "archivo", 1, &pesos);
+
+        assert_eq!(filas.len(), 1);
+        assert_eq!(filas[0].titulo, "Archivo c");
     }
 
     #[test]
