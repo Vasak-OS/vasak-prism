@@ -137,7 +137,9 @@ fn los_marcadores_coinciden_entre_idiomas() {
     for idioma in &IDIOMAS[1..] {
         let otros = textos(&cargar(idioma));
         for (clave, texto) in &referencia {
-            let Some(otro) = otros.get(clave) else { continue };
+            let Some(otro) = otros.get(clave) else {
+                continue;
+            };
             assert_eq!(
                 marcadores(texto),
                 marcadores(otro),
