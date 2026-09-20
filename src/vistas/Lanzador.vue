@@ -12,13 +12,17 @@
  *     cada tecla de una palabra escrita rápido.
  *  3. **El catálogo avisa cuando cambia.** Instalar algo mientras la ventana
  *     está abierta rehace la búsqueda sin que nadie toque nada.
+ *
+ * La ventana no se cierra nunca: se esconde. Se construye al levantar la sesión
+ * y vive escondida, que es de lo que depende que abrir el lanzador sea
+ * instantáneo. Por eso hay que limpiar al aparecer y no al montar — el montaje
+ * pasa una vez y la apertura, cientos.
  */
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import ListaDeResultados from '@/componentes/ListaDeResultados.vue';
-import { buscar, lanzar, type Resultado } from '@/servicios/busqueda';
+import { buscar, esconder, lanzar, type Resultado } from '@/servicios/busqueda';
 
 /** Lo que se espera entre la tecla y la consulta. */
 const ESPERA = 40;
@@ -33,6 +37,7 @@ const campo = ref<HTMLInputElement | null>(null);
 let numeroDeConsulta = 0;
 let temporizador: ReturnType<typeof setTimeout> | null = null;
 let soltarElAviso: UnlistenFn | null = null;
+let soltarElAparecer: UnlistenFn | null = null;
 
 async function consultar(texto: string) {
 	const mia = ++numeroDeConsulta;
@@ -87,14 +92,20 @@ async function elegir(indice: number) {
 	await cerrar();
 }
 
-async function cerrar() {
+/** Deja la ventana como recién abierta, sin tocarla. */
+function limpiar() {
 	consulta.value = '';
 	resultados.value = [];
 	elegida.value = 0;
+	// La consulta que estuviera en vuelo ya no interesa: si contestara después
+	// de reabrir, aparecerían los resultados de la búsqueda anterior sobre un
+	// campo vacío.
 	numeroDeConsulta++;
-	// Esconder y no cerrar: la ventana se construye una vez y se muestra, que es
-	// lo que hace que abrir el lanzador sea instantáneo.
-	await getCurrentWindow().hide();
+}
+
+async function cerrar() {
+	limpiar();
+	await esconder();
 }
 
 function alTeclear(evento: KeyboardEvent) {
@@ -123,11 +134,20 @@ onMounted(async () => {
 	campo.value?.focus();
 
 	soltarElAviso = await listen('catalogo-cambiado', () => consultar(consulta.value));
+
+	// Cada vez que la ventana aparece. El foco hay que ponerlo de nuevo: la
+	// superficie estuvo escondida y el campo lo perdió.
+	soltarElAparecer = await listen('prism:mostrada', async () => {
+		limpiar();
+		await nextTick();
+		campo.value?.focus();
+	});
 });
 
 onBeforeUnmount(() => {
 	if (temporizador) clearTimeout(temporizador);
 	soltarElAviso?.();
+	soltarElAparecer?.();
 });
 </script>
 

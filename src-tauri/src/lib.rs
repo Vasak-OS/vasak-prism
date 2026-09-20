@@ -3,10 +3,13 @@
 //! Lo que hay acá no es decoración: cada pieza resuelve algo que en las
 //! aplicaciones reales del escritorio se rompió al menos una vez.
 
+pub mod argumentos;
 pub mod catalogo;
 pub mod comandos;
 pub mod lanzador;
 mod locales;
+pub mod servicio;
+pub mod ventana;
 
 use std::sync::{Arc, Mutex};
 
@@ -52,8 +55,13 @@ fn preparar_el_catalogo(app: &tauri::AppHandle) -> Arc<Catalogo> {
     catalogo
 }
 
+/// Arranca el daemon.
+///
+/// `mostrar_al_arrancar` es para cuando el atajo no encontró a nadie corriendo:
+/// este proceso pasa a ser el daemon **y** abre la ventana, porque quien apretó
+/// la tecla quería el lanzador y no un servicio.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
+pub fn run(mostrar_al_arrancar: bool) {
     tauri::Builder::default()
         // El idioma de la sesión. **Con la ruta explícita de los catálogos**:
         // el plugin sólo prueba rutas relativas al ejecutable y al directorio
@@ -75,7 +83,7 @@ pub fn run() {
         .plugin(tauri_plugin_config_manager::init())
         .plugin(tauri_plugin_vicons::init())
         .plugin(tauri_plugin_shell::init())
-        .setup(|app| {
+        .setup(move |app| {
             let manejador = app.handle().clone();
             let catalogo = preparar_el_catalogo(&manejador);
 
@@ -89,9 +97,40 @@ pub fn run() {
                 hay_scope: lanzador::comando::hay_scope(),
             });
 
+            // La ventana se construye acá, escondida, y no se vuelve a construir
+            // nunca. Es de lo que depende que abrir el lanzador sea instantáneo.
+            ventana::montar(&manejador)?;
+
+            if mostrar_al_arrancar {
+                ventana::mostrar(&manejador);
+            }
+
+            // El nombre en el bus es además la instancia única: si ya lo tiene
+            // otro, este proceso sobra. No debería llegar acá —`main` pregunta
+            // antes—, pero dos arranques a la vez entran los dos.
+            let del_servicio = manejador.clone();
+            tauri::async_runtime::spawn(async move {
+                match servicio::servir(del_servicio.clone()).await {
+                    Ok(conexion) => {
+                        // La conexión tiene que seguir viva o el nombre se
+                        // suelta y el atajo deja de encontrar a nadie.
+                        std::future::pending::<()>().await;
+                        drop(conexion);
+                    }
+                    Err(error) => {
+                        eprintln!("no se pudo tomar {}: {error}", servicio::NOMBRE);
+                        del_servicio.exit(0);
+                    }
+                }
+            });
+
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![comandos::buscar, comandos::lanzar])
+        .invoke_handler(tauri::generate_handler![
+            comandos::buscar,
+            comandos::lanzar,
+            comandos::esconder
+        ])
         .run(tauri::generate_context!())
         .expect("error al ejecutar la aplicación");
 }

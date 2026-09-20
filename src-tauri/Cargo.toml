@@ -30,8 +30,19 @@ tauri-plugin-i18n-vsk = "2.1.1"
 tauri-plugin-vsk-contextual-menu = "2"
 tauri-plugin-shell = "2"
 
-# Para la ventana sin decoración: la barra propia necesita mover y redimensionar.
+# Para la ventana sin decoración, y para mudar el WebView a la superficie de
+# capa: eso es GTK crudo, no hay API de Tauri que lo haga.
 gtk = "0.18"
+gdk = "0.18"
+glib = "0.18"
+
+# La ventana centrada, encima de todo y con el teclado en exclusiva. Con una
+# ventana normal el compositor la pone donde quiere y no se queda con el teclado.
+gtk-layer-shell = { version = "0.8", features = ["v0_6"] }
+
+# El servicio de D-Bus con el que el atajo del teclado le habla al daemon, y el
+# nombre del bus que hace de instancia única.
+zbus = { version = "4", default-features = false, features = ["async-io"] }
 
 # La caché del índice de aplicaciones. La misma línea que usan la galería, el
 # reproductor y el daemon de notificaciones, así que el paquete ya depende de

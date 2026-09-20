@@ -34,6 +34,16 @@ pub struct Estado {
     pub hay_scope: bool,
 }
 
+/// Esconde la ventana.
+///
+/// Lo llama la interfaz al elegir un resultado. El Escape y la pérdida de foco
+/// no pasan por acá: los atiende la superficie de capa, que es la dueña del
+/// teclado y la única que se entera de un clic que cayó en otra ventana.
+#[tauri::command]
+pub fn esconder(app: tauri::AppHandle) {
+    crate::ventana::esconder(&app);
+}
+
 #[tauri::command]
 pub fn buscar(
     estado: State<'_, Estado>,
