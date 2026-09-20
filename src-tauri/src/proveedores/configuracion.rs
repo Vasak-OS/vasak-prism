@@ -37,6 +37,22 @@ pub struct Seccion {
 }
 
 impl Seccion {
+    /// Si el identificador es uno que la configuración va a entender.
+    ///
+    /// Se comprueba al leer y no sólo al abrir: una fila con un identificador
+    /// raro se puede elegir, y recién ahí falla. Mejor que no esté.
+    ///
+    /// La que se descarta es **la fila**, no el catálogo entero: perder las
+    /// treinta y dos secciones buenas porque una vino mal es peor que perder
+    /// esa una.
+    pub fn se_puede_abrir(&self) -> bool {
+        !self.id.is_empty()
+            && self
+                .id
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+    }
+
     /// El nombre en el idioma de la sesión, o en el que haya.
     ///
     /// Caer al que haya y no a la clave: una sección con el nombre en inglés se
@@ -96,7 +112,8 @@ pub fn del_disco() -> Vec<Seccion> {
 }
 
 pub fn leer(contenido: &str) -> Result<Vec<Seccion>, serde_json::Error> {
-    serde_json::from_str(contenido)
+    let leidas: Vec<Seccion> = serde_json::from_str(contenido)?;
+    Ok(leidas.into_iter().filter(Seccion::se_puede_abrir).collect())
 }
 
 /// Las secciones que coinciden con lo escrito.
@@ -206,6 +223,23 @@ mod tests {
     #[test]
     fn lo_que_no_coincide_no_aparece() {
         assert!(buscar(&secciones(), "zzzz", "es", 10).is_empty());
+    }
+
+    #[test]
+    fn una_seccion_con_un_identificador_raro_no_entra() {
+        // Se puede elegir y recién ahí falla, que es peor que no ofrecerla. Y se
+        // descarta la fila y no el catálogo: perder las buenas porque una vino
+        // mal es peor.
+        let contenido = r#"[
+            {"id": "network-wifi", "icono": "x", "nombres": {"es": "Wi-Fi"}},
+            {"id": "algo; rm -rf", "icono": "x", "nombres": {"es": "Raro"}},
+            {"id": "", "icono": "x", "nombres": {"es": "Vacía"}},
+            {"id": "Monitors", "icono": "x", "nombres": {"es": "Mayúsculas"}}
+        ]"#;
+
+        let leidas = leer(contenido).unwrap();
+        assert_eq!(leidas.len(), 1);
+        assert_eq!(leidas[0].id, "network-wifi");
     }
 
     #[test]

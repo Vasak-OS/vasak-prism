@@ -53,16 +53,17 @@ fn plegar(c: char) -> impl Iterator<Item = char> {
 /// Los dos se normalizan acá: quien llama no tiene que acordarse, y olvidarse
 /// es un error que no da ningún síntoma más que resultados que no aparecen.
 ///
-/// Si no coincide con nada, se prueba otra vez **sin los separadores**: «Wi-Fi»
-/// se escribe «wifi», «Audio salida» se busca como «audiosalida», y sin esto la
-/// sección más buscada de la configuración no aparecía. Va como segundo intento
-/// y no como normalización de entrada para no perder la diferencia entre una
-/// coincidencia de palabra entera y una que junta dos.
+/// Se prueba también **sin los separadores**: «Wi-Fi» se escribe «wifi», «Audio
+/// salida» se busca como «audiosalida», y sin eso la sección más buscada de la
+/// configuración no aparecía.
+///
+/// Se queda con el mejor de los dos y no con el primero que dé algo. Con el
+/// primero alcanzaba para que apareciera, pero no para que apareciera **arriba**:
+/// «wifi» contra «Wi-Fi» coincide salteado —la efe y las dos íes están en orden—
+/// y eso vale 25, mientras que sin el guion es una coincidencia exacta. Una fila
+/// con 25 se va al fondo de la lista y se la lleva puesta el recorte.
 pub fn puntaje(consulta: &str, texto: &str) -> f64 {
     let directo = puntaje_directo(consulta, texto);
-    if directo > 0.0 {
-        return directo;
-    }
 
     let sin_separadores = |texto: &str| -> String {
         normalizar(texto)
@@ -75,12 +76,12 @@ pub fn puntaje(consulta: &str, texto: &str) -> f64 {
     let texto = sin_separadores(texto);
 
     if consulta.is_empty() || texto.is_empty() {
-        return 0.0;
+        return directo;
     }
 
     // Un escalón menos que la coincidencia directa: juntar las palabras es una
     // ayuda, no una coincidencia mejor que la de quien las escribió bien.
-    puntaje_de_normalizados(&consulta, &texto) * 0.95
+    directo.max(puntaje_de_normalizados(&consulta, &texto) * 0.95)
 }
 
 fn puntaje_directo(consulta: &str, texto: &str) -> f64 {
@@ -203,7 +204,10 @@ mod tests {
 
     #[test]
     fn cuanto_mas_juntas_las_letras_mas_vale() {
-        assert!(puntaje("gim", "gimp x") > puntaje("gim", "g i m"));
+        // El ejemplo no puede ser «g i m»: sacándole los separadores eso **es**
+        // «gim», y con razón puntúa alto. Lo que se compara acá es una
+        // coincidencia salteada contra una seguida.
+        assert!(puntaje("gim", "gimp") > puntaje("gim", "g x i x m"));
     }
 
     #[test]
@@ -213,6 +217,16 @@ mod tests {
         assert!(puntaje("wifi", "Wi-Fi") > 0.0);
         assert!(puntaje("audiosalida", "Audio salida") > 0.0);
         assert!(puntaje("fechayhora", "Fecha y hora") > 0.0);
+    }
+
+    #[test]
+    fn y_la_coincidencia_sin_separadores_no_queda_tapada_por_una_salteada() {
+        // «wifi» contra «Wi-Fi» **también** coincide salteado —la efe y las dos
+        // íes están en orden— y eso vale 25. Quedándose con el primero que da
+        // algo, la sección aparecía con 25 y se la llevaba puesta el recorte de
+        // la lista. Se toma el mejor de los dos.
+        assert!(puntaje("wifi", "Wi-Fi") > CONTIENE);
+        assert!(puntaje("audiosalida", "Audio salida") > CONTIENE);
     }
 
     #[test]
