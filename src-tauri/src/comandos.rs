@@ -101,8 +101,16 @@ pub fn copiar(texto: String) -> Result<(), String> {
     // Se espera a que termine: `wl-copy` sin `--foreground` se va al fondo solo,
     // así que esto vuelve enseguida, y no esperarlo dejaría un zombi por cada
     // número copiado.
-    hijo.wait()
+    let estado = hijo
+        .wait()
         .map_err(|error| format!("wl-copy terminó mal: {error}"))?;
+
+    // `wait` devuelve `Ok` para un hijo que terminó mal, así que sin mirar el
+    // estado esto decía que copió cuando no copió nada — y el usuario se entera
+    // recién al pegar.
+    if !estado.success() {
+        return Err(format!("wl-copy terminó con {estado}"));
+    }
 
     Ok(())
 }

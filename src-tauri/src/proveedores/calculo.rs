@@ -15,9 +15,25 @@ const PUNTAJE: f64 = 1000.0;
 /// El icono, por nombre del tema como todos los demás.
 const ICONO: &str = "accessories-calculator";
 
+/// Con esto adelante, lo que sigue es una cuenta y punto.
+const FORZAR: char = '=';
+
 /// La respuesta a la consulta, si es una cuenta o una conversión.
 pub fn resolver(consulta: &str) -> Option<Resultado> {
     let consulta = consulta.trim();
+    if consulta.is_empty() {
+        return None;
+    }
+
+    // El `=` adelante pide una cuenta explícitamente: se saca antes de mirar
+    // nada, y de paso habilita lo que sin él no cuenta —un número solo—. Se
+    // saca acá y no en la interfaz: la sintaxis de un proveedor es del
+    // proveedor, y la ventana no tiene por qué conocerla.
+    let (consulta, forzada) = match consulta.strip_prefix(FORZAR) {
+        Some(resto) => (resto.trim(), true),
+        None => (consulta, false),
+    };
+
     if consulta.is_empty() {
         return None;
     }
@@ -34,7 +50,11 @@ pub fn resolver(consulta: &str) -> Option<Resultado> {
             expresion::formatear(conversion.valor),
         )
     } else {
-        let valor = expresion::evaluar(consulta)?;
+        let valor = if forzada {
+            expresion::evaluar_explicito(consulta)?
+        } else {
+            expresion::evaluar(consulta)?
+        };
         let texto = expresion::formatear(valor);
         (texto.clone(), texto)
     };
@@ -101,5 +121,25 @@ mod tests {
     fn un_numero_solo_tampoco() {
         // Escribir «42» busca lo que se llame 42.
         assert!(resolver("42").is_none());
+    }
+
+    #[test]
+    fn el_igual_adelante_fuerza_la_cuenta() {
+        // Y hace que un número solo sí conteste: quien escribió `=42` pidió una
+        // cuenta, no una aplicación llamada 42.
+        assert_eq!(resolver("=2+2").unwrap().titulo, "4");
+        assert_eq!(resolver("=42").unwrap().titulo, "42");
+        assert_eq!(resolver("= 2 + 2").unwrap().titulo, "4");
+    }
+
+    #[test]
+    fn el_igual_solo_no_da_nada() {
+        assert!(resolver("=").is_none());
+        assert!(resolver("=   ").is_none());
+    }
+
+    #[test]
+    fn con_el_igual_tambien_se_convierte() {
+        assert_eq!(resolver("=3 pulgadas a cm").unwrap().titulo, "7.62 cm");
     }
 }

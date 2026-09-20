@@ -164,7 +164,7 @@ impl Cuenta {
     }
 
     fn productos(&mut self) -> Option<f64> {
-        let mut valor = self.potencias()?;
+        let mut valor = self.unario()?;
 
         loop {
             let dividir = match self.mirar() {
@@ -173,7 +173,7 @@ impl Cuenta {
                 _ => return Some(valor),
             };
             self.donde += 1;
-            let otro = self.potencias()?;
+            let otro = self.unario()?;
 
             if dividir {
                 // Dividir por cero da infinito en coma flotante, y «inf» no es
@@ -188,19 +188,8 @@ impl Cuenta {
         }
     }
 
-    fn potencias(&mut self) -> Option<f64> {
-        let base = self.unario()?;
-
-        if self.mirar() == Some(&Pieza::Potencia) {
-            self.donde += 1;
-            // A la derecha, que es como se asocia: `2^3^2` es 2^9.
-            let exponente = self.potencias()?;
-            return Some(base.powf(exponente));
-        }
-
-        Some(base)
-    }
-
+    /// El signo va **por fuera** de la potencia: `-2^2` es `-(2^2)`, que es
+    /// como se lee en cualquier lado. Con el signo adentro daba 4.
     fn unario(&mut self) -> Option<f64> {
         match self.mirar() {
             Some(Pieza::Menos) => {
@@ -211,8 +200,22 @@ impl Cuenta {
                 self.donde += 1;
                 self.unario()
             }
-            _ => self.atomo(),
+            _ => self.potencias(),
         }
+    }
+
+    fn potencias(&mut self) -> Option<f64> {
+        let base = self.atomo()?;
+
+        if self.mirar() == Some(&Pieza::Potencia) {
+            self.donde += 1;
+            // El exponente vuelve a pasar por el signo, así que `2^-3` anda, y
+            // se asocia a la derecha: `2^3^2` es 2^9.
+            let exponente = self.unario()?;
+            return Some(base.powf(exponente));
+        }
+
+        Some(base)
     }
 
     fn atomo(&mut self) -> Option<f64> {
@@ -241,12 +244,25 @@ impl Cuenta {
 }
 
 /// El resultado de la expresión, o `None` si no es una.
+///
+/// Un número solo no cuenta: escribir «42» tiene que buscar lo que se llame 42,
+/// no ofrecer «42» como resultado de calcular 42.
 pub fn evaluar(texto: &str) -> Option<f64> {
+    evaluar_con(texto, false)
+}
+
+/// Igual, pero aceptando un número solo.
+///
+/// Es para cuando alguien escribió el `=` adelante: ahí pidió una cuenta
+/// explícitamente, y `=42` tiene que contestar 42 en vez de no contestar nada.
+pub fn evaluar_explicito(texto: &str) -> Option<f64> {
+    evaluar_con(texto, true)
+}
+
+fn evaluar_con(texto: &str, aceptar_numero_solo: bool) -> Option<f64> {
     let piezas = trocear(texto)?;
 
-    // Un número solo no es una cuenta: escribir «42» tiene que devolver lo que
-    // se llame 42, no ofrecer «42» como resultado de calcular 42.
-    if piezas.len() == 1 && matches!(piezas[0], Pieza::Numero(_)) {
+    if !aceptar_numero_solo && piezas.len() == 1 && matches!(piezas[0], Pieza::Numero(_)) {
         return None;
     }
 
@@ -305,6 +321,23 @@ mod tests {
         assert_eq!(evaluar("2 + 3 * 4"), Some(14.0));
         assert_eq!(evaluar("(2 + 3) * 4"), Some(20.0));
         assert_eq!(evaluar("2 ^ 3 ^ 2"), Some(512.0));
+    }
+
+    #[test]
+    fn la_potencia_liga_mas_fuerte_que_el_signo() {
+        // `-2^2` es -(2^2), que es como se lee en cualquier lado. Con el signo
+        // adentro de la base daba 4.
+        assert_eq!(evaluar("-2^2"), Some(-4.0));
+        assert_eq!(evaluar("(-2)^2"), Some(4.0));
+        // Y el exponente vuelve a pasar por el signo.
+        assert_eq!(evaluar("2^-2"), Some(0.25));
+    }
+
+    #[test]
+    fn con_el_igual_adelante_un_numero_solo_si_contesta() {
+        // Escribir `=42` es pedir una cuenta explícitamente.
+        assert_eq!(evaluar_explicito("42"), Some(42.0));
+        assert_eq!(evaluar("42"), None);
     }
 
     #[test]
