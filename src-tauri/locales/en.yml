@@ -5,7 +5,6 @@ ventana:
   minimizar: Minimise
   maximizar: Maximise
   cerrar: Close
-inicio:
-  titulo: Hello, VasakOS
-  descripcion: This is the template. Replace this screen with your own.
-  saludo: "Hello, {0}"
+lanzador:
+  escribi: Type to search
+  nada: Nothing by that name

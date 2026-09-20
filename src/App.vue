@@ -1,33 +1,37 @@
 <script setup lang="ts">
+/**
+ * La ventana.
+ *
+ * Sin marco ni barra de título: un lanzador no se minimiza ni se maximiza, se
+ * muestra y se esconde. Por eso no usa `WindowAppLayout`, que es el molde de las
+ * ventanas normales del escritorio; ese molde va a hacer falta cuando haya
+ * preferencias, y por eso sigue en el repositorio.
+ */
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useConfigStore } from '@vasakgroup/plugin-config-manager';
 import { onMounted, onUnmounted, type Ref, ref } from 'vue';
-import WindowAppLayout from '@/layouts/WindowAppLayout.vue';
+import Lanzador from '@/vistas/Lanzador.vue';
 
-let unListenConfig: Ref<UnlistenFn | null> = ref(null);
+const soltarLaConfiguracion: Ref<UnlistenFn | null> = ref(null);
 
 onMounted(async () => {
 	try {
-		const configStore = useConfigStore();
-		await configStore.loadConfig();
+		const configuracion = useConfigStore();
+		await configuracion.loadConfig();
 
-		unListenConfig.value = await listen('config-changed', async () => {
-			document.startViewTransition(() => {
-				configStore.loadConfig();
-			});
+		soltarLaConfiguracion.value = await listen('config-changed', async () => {
+			await configuracion.loadConfig();
 		});
-	} catch (error: any) {
+	} catch (error) {
 		console.error('Error al cargar configuración en App.vue', error);
 	}
 });
 
 onUnmounted(() => {
-	if (unListenConfig.value !== null) {
-		unListenConfig.value();
-	}
+	soltarLaConfiguracion.value?.();
 });
 </script>
 
 <template>
-  <WindowAppLayout />
+  <Lanzador />
 </template>

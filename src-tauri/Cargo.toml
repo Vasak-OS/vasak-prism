@@ -42,6 +42,12 @@ rusqlite = { version = "0.32" }
 inotify = "0.11"
 tauri-plugin-vsk-journal = "2"
 
+[features]
+# Para poder abrir la ventana compilada sin el servidor de desarrollo detrás.
+# Sin esto, `cargo run` en depuración apunta al `devUrl` de `tauri.conf.json` y
+# el WebView abre **vacío**: no hay error, no hay nada. La plantilla no lo traía.
+custom-protocol = ["tauri/custom-protocol"]
+
 [dev-dependencies]
 # Sólo para el test que valida los catálogos de idioma: el plugin los parsea en
 # tiempo de ejecución y **paniquea** si no puede, así que un error de sintaxis no
