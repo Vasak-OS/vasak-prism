@@ -1,0 +1,31 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Prism
+GenericName=Application launcher
+GenericName[es]=Lanzador de aplicaciones
+Comment=Find and open anything on the system
+Comment[es]=Encontrá y abrí cualquier cosa del sistema
+# El nombre del binario tal cual lo instala el paquete, que es el `productName`
+# de `tauri.conf.json`. Si alguien renombra el programa y se olvida de acá, la
+# entrada deja de abrir nada y no falla nada al compilar. Hay una prueba que ata
+# las dos cosas.
+Exec=vasak-prism
+# El PNG que el empaquetador de Tauri instala en el tema hicolor sale de
+# `bundle.icon` y se llama como el `productName`, así que el nombre de acá es
+# ése y no otro. Sin ruta: así lo resuelve el tema de iconos y un tema que traiga
+# el suyo lo puede reemplazar.
+Icon=vasak-prism
+Terminal=false
+Categories=Utility;
+Keywords=search;launcher;run;find;
+Keywords[es]=buscar;lanzador;ejecutar;encontrar;
+# Un lanzador no aparece en su propio listado de resultados ni en el menú: sería
+# la única entrada que, al abrirla desde el menú, abre lo que ya estabas usando.
+# La entrada existe para el `StartupWMClass` y para que el escritorio sepa de la
+# aplicación; las preferencias se abren desde la propia ventana.
+NoDisplay=true
+# Lo que hace que el escritorio pueda unir esta entrada con la ventana abierta:
+# tiene que ser el `identifier` de `tauri.conf.json`.
+StartupWMClass=ar.net.vasak.prism
+StartupNotify=false

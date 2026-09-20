@@ -4134,8 +4134,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "vapp"
-version = "0.2.4"
+name = "vasak-prism"
+version = "0.1.0"
 dependencies = [
  "gtk",
  "serde",

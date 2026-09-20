@@ -9,7 +9,7 @@ _version: 1
 #  2. Los dos idiomas tienen que tener las **mismas claves** y los mismos
 #     marcadores `{0}`. Hay un test que lo verifica.
 app:
-  nombre: Aplicación Vasak
+  nombre: Prism
 ventana:
   minimizar: Minimizar
   maximizar: Maximizar
