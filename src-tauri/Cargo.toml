@@ -1,0 +1,57 @@
+[package]
+name = "vapp"
+version = "0.2.4"
+description = "A Vasak Application (template)"
+authors = ["Vasak Group", "Joaquin (Pato) Decima"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "vapp_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Los plugins del escritorio. Los cuatro, no dos: una app de VasakOS tiene que
+# hablar el idioma de la sesión y abrir el menú del sistema con el clic derecho.
+tauri-plugin-vicons = "2"
+tauri-plugin-config-manager = "2"
+tauri-plugin-i18n-vsk = "2.1.1"
+tauri-plugin-vsk-contextual-menu = "2"
+tauri-plugin-shell = "2"
+
+# Para la ventana sin decoración: la barra propia necesita mover y redimensionar.
+gtk = "0.18"
+tauri-plugin-vsk-journal = "2"
+
+[dev-dependencies]
+# Sólo para el test que valida los catálogos de idioma: el plugin los parsea en
+# tiempo de ejecución y **paniquea** si no puede, así que un error de sintaxis no
+# se ve hasta que la aplicación no arranca.
+serde_yaml = "0.9"
+
+[profile.dev]
+incremental = true # Compile your binary in smaller steps.
+
+[profile.release]
+codegen-units = 1  # Deja que LLVM optimice mirando todo el programa a la vez.
+lto = "thin"       # ~90% del beneficio de fat LTO, compilando mucho más rápido.
+opt-level = 3      # Máxima optimización de velocidad.
+panic = "abort"    # Sin desenrollado de pila: binario más chico y más rápido.
+strip = true       # Fuera los símbolos de depuración.
+
+# Ojo al empaquetar: makepkg inyecta `-flto` global en CFLAGS/LDFLAGS, y los
+# crates que compilan C o assembly (ring, vía rustls) emiten bitcode que el
+# enlazador de rustc no resuelve. El PKGBUILD tiene que llevar `options=('!lto')`
+# — Cargo ya hace su propio LTO acá arriba, así que el de makepkg es redundante
+# además de dañino.

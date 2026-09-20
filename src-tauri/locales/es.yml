@@ -1,0 +1,21 @@
+_version: 1
+# Un catálogo por idioma, con las claves agrupadas por pantalla o componente.
+#
+# Dos reglas que aprendimos rompiendo cosas:
+#
+#  1. Si el valor contiene `: `, va **entre comillas**. Sin ellas el parser lo
+#     lee como un mapeo anidado y rompe el archivo entero — y el plugin
+#     paniquea al arrancar, así que la aplicación no abre.
+#  2. Los dos idiomas tienen que tener las **mismas claves** y los mismos
+#     marcadores `{0}`. Hay un test que lo verifica.
+app:
+  nombre: Aplicación Vasak
+ventana:
+  minimizar: Minimizar
+  maximizar: Maximizar
+  cerrar: Cerrar
+inicio:
+  titulo: Hola, VasakOS
+  descripcion: Esta es la plantilla. Reemplazá esta pantalla por la tuya.
+  # `t()` no interpola: el marcador se reemplaza a mano. Ver el README.
+  saludo: "Hola, {0}"

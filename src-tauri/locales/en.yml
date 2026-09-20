@@ -1,0 +1,11 @@
+_version: 1
+app:
+  nombre: Vasak Application
+ventana:
+  minimizar: Minimise
+  maximizar: Maximise
+  cerrar: Close
+inicio:
+  titulo: Hello, VasakOS
+  descripcion: This is the template. Replace this screen with your own.
+  saludo: "Hello, {0}"

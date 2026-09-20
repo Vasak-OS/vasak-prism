@@ -1,0 +1,293 @@
+/* biome-ignore-all lint/style/noDescendingSpecificity: el `body *` de más abajo
+   fija el color del texto y el bloque de `@layer base` fija `border-color`. La
+   regla compara selectores sin mirar qué propiedad tocan, así que ve un conflicto
+   donde no hay ninguno: ninguna de las dos declaraciones puede pisar a la otra. */
+@import "tailwindcss";
+
+/* Tailwind v4 no mira dentro de `node_modules`, así que las clases que sólo
+   existen en los componentes de la librería compartida —el marco, la barra— no
+   llegan nunca a la hoja de estilos: la ventana abre con el marcado puesto y
+   sin ninguna de sus reglas. */
+@source "../../node_modules/@vasakgroup/vue-libvasak/dist";
+
+:root {
+  /* general */
+  --corner-radius: 10px;
+
+  /* Las tres fuentes que se eligen en Configuración: la del título, la de las
+     aplicaciones y la de la terminal. Estos valores rigen hasta que el gestor
+     de configuración escribe los de verdad sobre el elemento raíz, y son los
+     que quedan si esa lectura falla — que es el punto de declararlos acá: un
+     `var()` sin valor descarta la regla entera, así que sin este piso una
+     configuración ilegible dejaría a la aplicación sin ninguna fuente. */
+  --vsk-font-apps: sans-serif;
+  --vsk-font-title: sans-serif;
+  --vsk-font-terminal: monospace;
+
+  /* Colores de Marca */
+  --primary: #dd7878;
+  --secondary: #8839ef;
+  --primary-dark: #eba0ac;
+  --secondary-dark: #cba6f7;
+
+  /* Colores de Interfaz (UI) */
+  --ui-background: #eff1f5;
+  --ui-surface: #ccd0da;
+  --ui-border: #dce0e8;
+  /* El borde de lo que **delimita un control** —un campo, un botón, un selector—.
+     `--ui-border` da 1.17 contra el fondo en claro y 1.14 en oscuro, contra el
+     mínimo de 3.0 que pide WCAG 1.4.11 para lo que no es texto: a esos valores el
+     contorno de un input no se percibe. Se separa en dos tokens en lugar de subir
+     uno solo, porque el mismo color también hace de separador decorativo, y subirlo
+     ahí convertiría cada tarjeta en una caja marcada. */
+  --ui-border-strong: #7c7f93;
+  --ui-background-dark: #1e1e2e;
+  --ui-surface-dark: #313244;
+  --ui-border-dark: #11111b;
+  --ui-border-strong-dark: #6c7086;
+
+  /* Colores de Texto */
+  --text-main: #4c4f69;
+  /* #555869 y no #6c6f85: el anterior daba 4.37 sobre el fondo y 3.20 sobre la
+     superficie, contra el mínimo de 4.5 de WCAG 1.4.3 — y es el color de casi todo
+     el texto secundario, que además suele ir en 12px o menos. Éste da 6.22 y 4.56,
+     y sigue siendo más claro que el texto principal, así que la jerarquía se
+     mantiene. El del modo oscuro ya cumplía (7.37 y 5.65) y no se toca. */
+  --text-muted: #555869;
+  --text-on-primary: #1e1e2e;
+  --text-on-secondary: #eff1f5;
+  --text-main-dark: #cdd6f4;
+  --text-muted-dark: #a6adc8;
+  --text-on-primary-dark: #1e1e2e;
+  --text-on-secondary-dark: #1e1e2e;
+
+  /* Status */
+  --status-error: #d20f39;
+  --status-success: #40a02b;
+  --status-warning: #df8e1d;
+  --status-error-dark: #f38ba8;
+  --status-success-dark: #a6e3a1;
+  --status-warning-dark: #f9e2af;
+
+  /* Terminal Colors */
+  --terminal-foreground: #4c4f69;
+  --terminal-background: #eff1f5;
+  --terminal-cursor: #dd7878;
+  --terminal-foreground-dark: #dddddd;
+  --terminal-background-dark: #1a1a1a;
+  --terminal-cursor-dark: #d4885c;
+
+  --terminal-ansi-black: #4c4f69;
+  --terminal-ansi-red: #d20f39;
+  --terminal-ansi-green: #40a02b;
+  --terminal-ansi-yellow: #df8e1d;
+  --terminal-ansi-blue: #1e66f5;
+  --terminal-ansi-magenta: #8839ef;
+  --terminal-ansi-cyan: #04a5e5;
+  --terminal-ansi-white: #e6e9ef;
+
+  --terminal-ansi-bright-black: #4c4f69;
+  --terminal-ansi-bright-red: #d20f39;
+  --terminal-ansi-bright-green: #40a02b;
+  --terminal-ansi-bright-yellow: #df8e1d;
+  --terminal-ansi-bright-blue: #1e66f5;
+  --terminal-ansi-bright-magenta: #8839ef;
+  --terminal-ansi-bright-cyan: #04a5e5;
+  --terminal-ansi-bright-white: #e6e9ef;
+
+  --terminal-ansi-black-dark: #181825;
+  --terminal-ansi-red-dark: #f38ba8;
+  --terminal-ansi-green-dark: #a6e3a1;
+  --terminal-ansi-yellow-dark: #f9e2af;
+  --terminal-ansi-blue-dark: #89b4fa;
+  --terminal-ansi-magenta-dark: #eba0ac;
+  --terminal-ansi-cyan-dark: #89dceb;
+  --terminal-ansi-white-dark: #cdd6f4;
+
+  --terminal-ansi-bright-black-dark: #181825;
+  --terminal-ansi-bright-red-dark: #f38ba8;
+  --terminal-ansi-bright-green-dark: #a6e3a1;
+  --terminal-ansi-bright-yellow-dark: #f9e2af;
+  --terminal-ansi-bright-blue-dark: #89b4fa;
+  --terminal-ansi-bright-magenta-dark: #eba0ac;
+  --terminal-ansi-bright-cyan-dark: #89dceb;
+  --terminal-ansi-bright-white-dark: #cdd6f4;
+
+  /* Logic Assignments */
+  --use-primary: var(--primary);
+  --use-secondary: var(--secondary);
+  --use-ui-background: var(--ui-background);
+  --use-ui-surface: var(--ui-surface);
+  --use-ui-border: var(--ui-border);
+  --use-ui-border-strong: var(--ui-border-strong);
+  --use-text-main: var(--text-main);
+  --use-text-muted: var(--text-muted);
+  --use-text-on-primary: var(--text-on-primary);
+  --use-text-on-secondary: var(--text-on-secondary);
+  --use-status-error: var(--status-error);
+  --use-status-success: var(--status-success);
+  --use-status-warning: var(--status-warning);
+}
+
+.dark {
+  /* Override logic assignments in dark mode */
+  --use-primary: var(--primary-dark);
+  --use-secondary: var(--secondary-dark);
+  --use-ui-background: var(--ui-background-dark);
+  --use-ui-surface: var(--ui-surface-dark);
+  --use-ui-border: var(--ui-border-dark);
+  --use-ui-border-strong: var(--ui-border-strong-dark);
+  --use-text-main: var(--text-main-dark);
+  --use-text-muted: var(--text-muted-dark);
+  --use-text-on-primary: var(--text-on-primary-dark);
+  --use-text-on-secondary: var(--text-on-secondary-dark);
+  --use-status-error: var(--status-error-dark);
+  --use-status-success: var(--status-success-dark);
+  --use-status-warning: var(--status-warning-dark);
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Las tres fuentes, como utilidades de Tailwind.
+
+     `font-sans` es además la que Tailwind aplica al documento sin que se
+     escriba ninguna clase, así que atarla acá hace que toda la aplicación siga
+     lo configurado por defecto. `font-title` para los títulos de ventana y
+     `font-mono` para la terminal y todo lo que se alinee por columnas. */
+  --font-sans: var(--vsk-font-apps);
+  --font-title: var(--vsk-font-title);
+  --font-mono: var(--vsk-font-terminal);
+
+  /* radius */
+  --radius-corner: var(--corner-radius);
+  /* El radio chico, para lo que no es una tarjeta: chips, insignias, el pulgar de
+     una barra. Derivado del que la persona configuró y no fijo, así que un
+     escritorio con esquinas rectas o muy redondeadas se ve coherente hasta en los
+     detalles — con `rounded-sm` a 2px, subir el radio general dejaba las tarjetas
+     redondas y los chips cuadrados. */
+  --radius-corner-sm: calc(var(--corner-radius) / 2.5);
+  --radius-corner-window: calc(var(--corner-radius) + 2px);
+
+  /* Colores de Marca - responsive a dark mode */
+  --color-primary: var(--use-primary);
+  --color-secondary: var(--use-secondary);
+
+  /* Colores de Interfaz (UI) - responsive a dark mode */
+  --color-ui-bg: var(--use-ui-background);
+  --color-ui-surface: var(--use-ui-surface);
+  --color-ui-border: var(--use-ui-border);
+  --color-ui-border-strong: var(--use-ui-border-strong);
+
+  /* Colores de Texto - responsive a dark mode */
+  --color-tx-main: var(--use-text-main);
+  --color-tx-muted: var(--use-text-muted);
+  --color-tx-on-primary: var(--use-text-on-primary);
+  --color-tx-on-secondary: var(--use-text-on-secondary);
+
+  /* Status - responsive a dark mode */
+  --color-status-error: var(--use-status-error);
+  --color-status-success: var(--use-status-success);
+  --color-status-warning: var(--use-status-warning);
+}
+
+::view-transition-old(root) {
+  animation-delay: 500ms;
+}
+
+::view-transition-new(root) {
+  animation: circle-in 500ms;
+}
+
+body * {
+  @apply text-tx-main transition-colors duration-300;
+}
+
+.background {
+  @apply bg-ui-bg/80;
+}
+
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  /* Con `rgba(255,255,255,.2)` la barra era blanca sobre fondo claro, o sea
+     invisible. El token sigue al tema. */
+  background: color-mix(in srgb, var(--color-tx-muted) 45%, transparent);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-tx-muted) 70%, transparent);
+}
+
+/* ── Accesibilidad: el foco y el movimiento ────────────────────────────────── */
+
+/*
+ * El foco del teclado tiene que verse (WCAG 2.4.7).
+ *
+ * Medido antes de escribir esto: 259 botones en el escritorio, 56 lugares con
+ * `outline-none` y sólo 21 con `focus-visible:`. Seis de las ocho aplicaciones no
+ * tenían ni uno, así que recorrer con Tab era hacerlo a ciegas.
+ *
+ * Va con `:where()` para que tenga especificidad cero: cualquier componente que
+ * quiera su propio indicador lo pisa sin peleas, y esto queda como piso.
+ */
+:where(
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  summary,
+  [role="button"],
+  [tabindex]:not([tabindex="-1"])
+):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/*
+ * Menos movimiento para quien lo pidió (WCAG 2.3.3, y 2.2.2 para lo que no para).
+ *
+ * En el escritorio hay 378 transiciones y 41 animaciones **infinitas** —pulsos de
+ * «conectando», ruedas de carga—, y cero soporte de esta preferencia. Para alguien
+ * con trastorno vestibular eso no es una molestia estética.
+ *
+ * No se apaga del todo: una duración mínima en lugar de `none` conserva los eventos
+ * `transitionend` y `animationend`, que hay código que espera. Y `iteration-count: 1`
+ * es lo que detiene lo infinito, que es la parte que de verdad marea.
+ */
+/* biome-ignore-start lint/complexity/noImportantStyles: acá `!important` es la
+   regla, no la excepción. Lo que hay que pisar son las transiciones que cada
+   componente declara con utilidades de Tailwind, que tienen más especificidad
+   que un selector universal: sin `!important` esta preferencia no gana ninguna
+   y la persona que la pidió sigue viendo todo moverse. Es además lo que hace
+   la propia hoja de reinicio de Tailwind y lo que recomienda WCAG 2.3.3. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+/* biome-ignore-end lint/complexity/noImportantStyles: fin del bloque de movimiento. */
