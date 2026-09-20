@@ -8,11 +8,11 @@ Sale de lo que hasta ahora vivía adentro de `vasak-desktop` como una vista más
 Como aplicación propia puede crecer —archivos, calculadora, extensiones— y, sobre
 todo, puede quedarse **residente**, que es lo único que la hace instantánea.
 
-> **Estado: naciendo.** Ahora mismo esto es la plantilla `vapp` con el nombre
-> puesto. Lo que falta está en los
-> [issues del repositorio](https://github.com/Vasak-OS/vasak-prism/issues), en
-> orden: parser de `.desktop`, índice de aplicaciones, daemon residente,
-> interfaz, lanzamiento, y después los proveedores.
+> **Estado: abre, busca y lanza.** Están el parser de `.desktop`, el índice, el
+> lanzamiento, la ventana y el daemon residente. Lo que falta son los
+> **proveedores** —archivos, calculadora, ventanas abiertas, secciones de la
+> configuración— y el empaquetado, y está en los
+> [issues del repositorio](https://github.com/Vasak-OS/vasak-prism/issues).
 
 ---
 
@@ -62,16 +62,20 @@ WebView abre vacío.
 
 ## Cómo está armado
 
-Hoy es la plantilla con el nombre puesto, así que la mitad de esto es dónde van
-a ir las cosas y no lo que ya está. La columna de la derecha lo dice.
+| carpeta | qué hay |
+|---|---|
+| `src/` | la interfaz, con `@vasakgroup/vue-libvasak` |
+| `src-tauri/src/catalogo/` | leer las entradas del escritorio, indexarlas, puntuarlas |
+| `src-tauri/src/lanzador/` | armar y correr el comando de lo que se eligió |
+| `src-tauri/src/ventana.rs` | la superficie de capa, y la ventana común si no la hay |
+| `src-tauri/src/servicio.rs` | el servicio de D-Bus con el que el atajo despierta al daemon |
+| `src-tauri/locales/` | los catálogos de idioma, uno por idioma |
+| `packaging/` | la entrada del escritorio, la unidad de systemd y la activación por D-Bus |
+| `tests/`, `src-tauri/tests/` | las pruebas de cada lado |
 
-| carpeta | qué hay hoy | qué va a vivir ahí |
-|---|---|---|
-| `src/` | la ventana de la plantilla | la interfaz del lanzador, con `@vasakgroup/vue-libvasak` |
-| `src-tauri/src/` | el arranque y los catálogos de idioma | el índice, los proveedores, el ranking y el daemon |
-| `src-tauri/locales/` | los catálogos, uno por idioma | lo mismo |
-| `packaging/` | la entrada del escritorio | también la unidad de systemd y la activación por D-Bus |
-| `tests/`, `src-tauri/tests/` | las pruebas de cada lado | lo mismo |
+Los **proveedores** —archivos, calculadora, ventanas abiertas— van a entrar en
+`src-tauri/src/`, cada uno con lo suyo. Hoy el único que hay es el de
+aplicaciones, que es `catalogo/`.
 
 El nombre del programa aparece en cinco archivos que no dependen entre sí
 (`package.json`, `Cargo.toml`, `tauri.conf.json`, `index.html`, `main.rs`) más la
