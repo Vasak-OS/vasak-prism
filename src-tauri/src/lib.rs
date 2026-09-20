@@ -97,6 +97,7 @@ pub fn run(mostrar_al_arrancar: bool) {
                 uso,
                 hay_scope: lanzador::comando::hay_scope(),
                 recientes: Mutex::new(proveedores::recientes::Cache::nueva()),
+                ventanas: Mutex::new(proveedores::ventanas::Cache::nueva()),
                 secciones: proveedores::configuracion::del_disco(),
                 idioma: locales::idioma_del_sistema(),
             });
@@ -137,6 +138,7 @@ pub fn run(mostrar_al_arrancar: bool) {
             comandos::abrir,
             comandos::ejecutar,
             comandos::abrir_configuracion,
+            comandos::presentar_ventana,
             comandos::esconder
         ])
         .run(tauri::generate_context!())

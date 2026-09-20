@@ -36,7 +36,15 @@ function fila(titulo: string, accion: string | null = null) {
 
 /** Una fila de cualquier otro proveedor. */
 function deOtro(
-	origen: 'calculo' | 'emoji' | 'web' | 'comando' | 'reciente' | 'completar' | 'configuracion',
+	origen:
+		| 'calculo'
+		| 'emoji'
+		| 'web'
+		| 'comando'
+		| 'reciente'
+		| 'completar'
+		| 'configuracion'
+		| 'ventana',
 	id: string
 ) {
 	return {
@@ -376,6 +384,12 @@ describe('el teclado', () => {
 				comando: 'abrir_configuracion',
 				clave: 'seccion',
 				valor: 'network-wifi',
+			},
+			{
+				fila: deOtro('ventana', '12'),
+				comando: 'presentar_ventana',
+				clave: 'id',
+				valor: '12',
 			},
 		];
 

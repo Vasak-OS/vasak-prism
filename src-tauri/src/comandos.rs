@@ -32,6 +32,8 @@ pub struct Estado {
     /// Si en esta máquina hay `systemd-run`. Se mira una vez, al arrancar, y no
     /// en cada lanzamiento.
     pub hay_scope: bool,
+    /// Las ventanas abiertas, preguntadas al escritorio cada tanto.
+    pub ventanas: Mutex<crate::proveedores::ventanas::Cache>,
     /// Las secciones de la configuración, leídas una vez al arrancar.
     ///
     /// No cambian mientras la sesión vive: las publica el paquete de
@@ -82,6 +84,15 @@ pub fn buscar(
 
     let mut filas = estado.catalogo.buscar_con_uso(&consulta, limite, &pesos);
 
+    {
+        let mut cache = estado.ventanas.lock().unwrap_or_else(|e| e.into_inner());
+        filas.extend(crate::proveedores::ventanas::buscar(
+            cache.lista(),
+            &consulta,
+            limite,
+        ));
+    }
+
     filas.extend(crate::proveedores::configuracion::buscar(
         &estado.secciones,
         &consulta,
@@ -116,6 +127,14 @@ pub fn buscar(
     // El límite es cuántas filas se mandan, no cuántas se buscan.
     filas.truncate(limite);
     filas
+}
+
+/// Trae al frente una ventana abierta.
+///
+/// Se lo pide al escritorio, que es el único que le habla al compositor.
+#[tauri::command]
+pub fn presentar_ventana(id: String) -> Result<(), String> {
+    crate::proveedores::ventanas::presentar(&id)
 }
 
 /// Abre la configuración en una sección.
