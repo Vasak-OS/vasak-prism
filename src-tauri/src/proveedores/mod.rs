@@ -28,6 +28,7 @@ pub mod expresion;
 pub mod recientes;
 pub mod shell;
 pub mod unidades;
+pub mod ventanas;
 pub mod web;
 
 use crate::catalogo::aplicacion::Resultado;

@@ -11,4 +11,5 @@ lanzador:
   buscarEn: "Search on {0}"
   ejecutar: Enter runs the command
   enLaConfiguracion: In settings
+  ventanaAbierta: Open window
   nada: Nothing by that name

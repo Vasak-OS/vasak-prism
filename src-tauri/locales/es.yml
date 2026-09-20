@@ -20,4 +20,5 @@ lanzador:
   buscarEn: "Buscar en {0}"
   ejecutar: Enter ejecuta el comando
   enLaConfiguracion: En la configuración
+  ventanaAbierta: Ventana abierta
   nada: No hay nada con ese nombre

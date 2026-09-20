@@ -103,6 +103,8 @@ pub enum Origen {
     Reciente,
     /// Una sección de la configuración, que se abre ahí y no en la portada.
     Configuracion,
+    /// Una ventana abierta, que se trae al frente.
+    Ventana,
     /// No hace nada al elegirlo: completa el campo de búsqueda. Es para cuando
     /// lo que se escribió todavía no alcanza —un bang a medias— y ofrecerle a
     /// alguien que siga escribiendo es más útil que no ofrecerle nada.
