@@ -7,7 +7,15 @@ import { invoke } from '@tauri-apps/api/core';
  * interfaz lo adivine mirando la forma del resultado, que es como se termina
  * con dos lugares que tienen que estar de acuerdo.
  */
-export type Origen = 'aplicacion' | 'calculo';
+export type Origen =
+	| 'aplicacion'
+	| 'calculo'
+	| 'comando'
+	| 'web'
+	| 'emoji'
+	| 'reciente'
+	/** No hace nada: completa el campo. Un bang a medias, por ejemplo. */
+	| 'completar';
 
 /** Una fila de la lista de resultados, tal cual la manda el backend. */
 export interface Resultado {
@@ -19,6 +27,8 @@ export interface Resultado {
 	subtitulo: string | null;
 	/** El **nombre** del icono en el tema, nunca una ruta. */
 	icono: string | null;
+	/** Lo que va en el `{0}` del subtítulo traducido. */
+	subtituloDato: string | null;
 	puntaje: number;
 	origen: Origen;
 }
@@ -28,17 +38,25 @@ export function buscar(consulta: string, limite?: number): Promise<Resultado[]> 
 }
 
 /**
- * Hace lo que corresponda con la fila elegida: abrir o copiar.
+ * Hace lo que corresponda con la fila elegida.
  *
  * El `switch` está acá y no en la vista porque es lo que sabe de la forma de un
- * resultado; la vista sólo sabe que se eligió uno.
+ * resultado; la vista sólo sabe que se eligió uno. `completar` no llega hasta
+ * acá: no hace nada en el backend, lo resuelve la vista escribiendo en el campo.
  */
 export function elegir(resultado: Resultado): Promise<void> {
-	if (resultado.origen === 'calculo') {
-		return invoke<void>('copiar', { texto: resultado.id });
+	switch (resultado.origen) {
+		case 'calculo':
+		case 'emoji':
+			return invoke<void>('copiar', { texto: resultado.id });
+		case 'web':
+		case 'reciente':
+			return invoke<void>('abrir', { destino: resultado.id });
+		case 'comando':
+			return invoke<void>('ejecutar', { comandoEscrito: resultado.id });
+		default:
+			return invoke<void>('lanzar', { id: resultado.id, accion: resultado.accion });
 	}
-
-	return invoke<void>('lanzar', { id: resultado.id, accion: resultado.accion });
 }
 
 /**

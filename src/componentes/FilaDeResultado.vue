@@ -11,7 +11,7 @@
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
 import { ThemeIcon } from '@vasakgroup/vue-libvasak';
 import { computed } from 'vue';
-import type { Resultado } from '@/servicios/busqueda';
+import type { Origen, Resultado } from '@/servicios/busqueda';
 
 const props = defineProps<{
 	resultado: Resultado;
@@ -27,14 +27,21 @@ const { t } = useI18n();
  * El subtítulo, traducido si corresponde.
  *
  * Los resultados que salen del disco traen texto de verdad —el nombre de la
- * aplicación, su descripción— y se muestran como vienen. Los que arma el backend
- * traen la **clave** del catálogo, porque el backend no sabe en qué idioma está
- * la sesión: ésos se traducen acá.
+ * aplicación, su descripción, la ruta de un archivo— y se muestran como vienen.
+ * Los que arma el backend traen la **clave** del catálogo, porque el backend no
+ * sabe en qué idioma está la sesión: ésos se traducen acá.
  */
+const SIN_TRADUCIR: Origen[] = ['aplicacion', 'reciente'];
+
 const subtitulo = computed(() => {
 	const suyo = props.resultado.subtitulo;
 	if (!suyo) return '';
-	return props.resultado.origen === 'aplicacion' ? suyo : t(suyo);
+	if (SIN_TRADUCIR.includes(props.resultado.origen)) return suyo;
+
+	// El `t()` del plugin no interpola: el marcador se reemplaza a mano.
+	const traducido = t(suyo);
+	const dato = props.resultado.subtituloDato;
+	return dato ? traducido.replace('{0}', dato) : traducido;
 });
 </script>
 

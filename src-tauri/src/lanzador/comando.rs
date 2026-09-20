@@ -59,7 +59,7 @@ pub fn armar(
 /// `--collect` limpia el ámbito cuando termina, aunque termine mal; sin eso, un
 /// programa que se cae deja el ámbito en estado fallido y queda ahí hasta que
 /// alguien lo saque a mano.
-fn envolver_en_scope(argumentos: Vec<String>) -> Vec<String> {
+pub fn envolver_en_scope(argumentos: Vec<String>) -> Vec<String> {
     let mut salida = vec![
         SCOPE.to_string(),
         "--user".to_string(),

@@ -93,6 +93,18 @@ impl Aplicacion {
 pub enum Origen {
     Aplicacion,
     Calculo,
+    /// Un comando de shell, que se ejecuta.
+    Comando,
+    /// Una dirección, que se abre en el navegador.
+    Web,
+    /// Un carácter, que se copia.
+    Emoji,
+    /// Un archivo, que se abre con lo que corresponda.
+    Reciente,
+    /// No hace nada al elegirlo: completa el campo de búsqueda. Es para cuando
+    /// lo que se escribió todavía no alcanza —un bang a medias— y ofrecerle a
+    /// alguien que siga escribiendo es más útil que no ofrecerle nada.
+    Completar,
 }
 
 /// Una fila de la lista de resultados.
@@ -104,7 +116,12 @@ pub struct Resultado {
     /// La acción, si esta fila es una acción y no la aplicación.
     pub accion: Option<String>,
     pub titulo: String,
+    /// El texto de abajo, o la **clave** del catálogo de idioma cuando lo arma
+    /// el backend: acá no se sabe en qué idioma está la sesión.
     pub subtitulo: Option<String>,
+    /// Lo que va en el `{0}` del subtítulo traducido. El `t()` del plugin no
+    /// interpola, así que el reemplazo lo hace la interfaz.
+    pub subtitulo_dato: Option<String>,
     pub icono: Option<String>,
     pub puntaje: f64,
     pub origen: Origen,
@@ -129,6 +146,7 @@ pub fn resultados(aplicacion: &Aplicacion, consulta: &str) -> Vec<Resultado> {
                 .comentario
                 .clone()
                 .or_else(|| aplicacion.generico.clone()),
+            subtitulo_dato: None,
             icono: aplicacion.icono.clone(),
             puntaje: propio,
             origen: Origen::Aplicacion,
@@ -148,6 +166,7 @@ pub fn resultados(aplicacion: &Aplicacion, consulta: &str) -> Vec<Resultado> {
                 accion: Some(accion.id.clone()),
                 titulo: accion.nombre.clone(),
                 subtitulo: Some(aplicacion.nombre.clone()),
+                subtitulo_dato: None,
                 icono: accion.icono.clone().or_else(|| aplicacion.icono.clone()),
                 puntaje: puntaje_final,
                 origen: Origen::Aplicacion,
