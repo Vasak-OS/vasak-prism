@@ -16,6 +16,7 @@ ventana:
   cerrar: Cerrar
 lanzador:
   escribi: Escribí para buscar
+  prefijos: "f archivos · w ventanas · a aplicaciones · > comando · ? web · : emoji"
   copiar: Enter copia el resultado
   buscarEn: "Buscar en {0}"
   ejecutar: Enter ejecuta el comando

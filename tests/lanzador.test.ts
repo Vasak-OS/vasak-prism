@@ -451,3 +451,28 @@ describe('el teclado', () => {
 		expect(loQueSePidio.filter((uno) => uno.comando === 'lanzar')).toHaveLength(0);
 	});
 });
+
+describe('la ayuda de los prefijos', () => {
+	test('se ve con el campo vacío', async () => {
+		// Es el único momento en que hay lugar para decir que los prefijos
+		// existen, y una sintaxis que no se ve es una sintaxis que no se usa: es
+		// lo que le pasó a la búsqueda vieja, que no tenía ni atajo.
+		const ventana = mount(Lanzador);
+		await nextTick();
+
+		expect(ventana.text()).toContain('lanzador.prefijos');
+		ventana.unmount();
+	});
+
+	test('y se va apenas se escribe', async () => {
+		// Con algo escrito el lugar es de los resultados.
+		contestar('buscar', async () => []);
+		const ventana = mount(Lanzador);
+		await ventana.find('input').setValue('firefox');
+		await new Promise((listo) => setTimeout(listo, DESPUES_DE_LA_ESPERA));
+		await nextTick();
+
+		expect(ventana.text()).not.toContain('lanzador.prefijos');
+		ventana.unmount();
+	});
+});
