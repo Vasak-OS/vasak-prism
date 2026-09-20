@@ -44,7 +44,8 @@ function deOtro(
 		| 'reciente'
 		| 'completar'
 		| 'configuracion'
-		| 'ventana',
+		| 'ventana'
+		| 'archivo',
 	id: string
 ) {
 	return {
@@ -390,6 +391,12 @@ describe('el teclado', () => {
 				comando: 'presentar_ventana',
 				clave: 'id',
 				valor: '12',
+			},
+			{
+				fila: deOtro('archivo', '/home/pato/notas.md'),
+				comando: 'abrir',
+				clave: 'destino',
+				valor: '/home/pato/notas.md',
 			},
 		];
 

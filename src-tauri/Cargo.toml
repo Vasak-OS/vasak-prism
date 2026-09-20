@@ -51,6 +51,12 @@ rusqlite = { version = "0.32" }
 
 # Para enterarse de que se instaló o se borró una aplicación sin sondear.
 inotify = "0.11"
+
+# Para **leer** el índice de archivos que mantiene el gestor de archivos. La
+# misma línea que usa él, que es lo que hace que los dos entiendan el mismo
+# formato en disco. Acá sólo se lee: tantivy admite muchos lectores y un
+# escritor, y el escritor es el gestor.
+tantivy = "0.22"
 tauri-plugin-vsk-journal = "2"
 
 [features]

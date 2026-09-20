@@ -21,6 +21,7 @@
 //! va a tener sentido cuando entren los archivos (#7), que tardan y van a
 //! necesitar contestar por partes.
 
+pub mod archivos;
 pub mod calculo;
 pub mod configuracion;
 pub mod emoji;

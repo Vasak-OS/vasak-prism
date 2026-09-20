@@ -32,6 +32,12 @@ pub struct Estado {
     /// Si en esta máquina hay `systemd-run`. Se mira una vez, al arrancar, y no
     /// en cada lanzamiento.
     pub hay_scope: bool,
+    /// El índice de archivos del gestor, abierto de sólo lectura.
+    ///
+    /// En `Option` y no abierto al arrancar a secas: puede no existir todavía
+    /// —nadie escaneó— y aparecer después, así que se reintenta abrirlo mientras
+    /// no esté. Cuando está, el handle se queda.
+    pub archivos: Mutex<Option<crate::proveedores::archivos::Indice>>,
     /// Las ventanas abiertas, preguntadas al escritorio cada tanto.
     pub ventanas: Mutex<crate::proveedores::ventanas::Cache>,
     /// Las secciones de la configuración, leídas una vez al arrancar.
@@ -83,6 +89,16 @@ pub fn buscar(
         .unwrap_or_default();
 
     let mut filas = estado.catalogo.buscar_con_uso(&consulta, limite, &pesos);
+
+    {
+        let mut indice = estado.archivos.lock().unwrap_or_else(|e| e.into_inner());
+        if indice.is_none() {
+            *indice = crate::proveedores::archivos::Indice::del_lugar_de_siempre();
+        }
+        if let Some(indice) = indice.as_ref() {
+            filas.extend(indice.buscar(&consulta, limite));
+        }
+    }
 
     {
         let mut cache = estado.ventanas.lock().unwrap_or_else(|e| e.into_inner());

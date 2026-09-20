@@ -97,6 +97,7 @@ pub fn run(mostrar_al_arrancar: bool) {
                 uso,
                 hay_scope: lanzador::comando::hay_scope(),
                 recientes: Mutex::new(proveedores::recientes::Cache::nueva()),
+                archivos: Mutex::new(proveedores::archivos::Indice::del_lugar_de_siempre()),
                 ventanas: Mutex::new(proveedores::ventanas::Cache::nueva()),
                 secciones: proveedores::configuracion::del_disco(),
                 idioma: locales::idioma_del_sistema(),
