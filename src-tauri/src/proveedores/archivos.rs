@@ -32,11 +32,36 @@ use tantivy::{Index, IndexReader, TantivyDocument, Term};
 use crate::catalogo::aplicacion::{Origen, Resultado};
 use crate::catalogo::puntaje;
 
-/// Dónde deja el gestor de archivos su índice, relativo al directorio de datos.
+/// Dónde está el índice, en orden de preferencia.
 ///
-/// El nombre del directorio es el `identifier` de su `tauri.conf.json`, que es
+/// # Por qué son varias y no una
+///
+/// El índice cambia de dueño: lo escribía el gestor de archivos en **su**
+/// directorio de datos y pasa a estar en la caché compartida, porque es dato
+/// derivado —se rehace recorriendo el disco— y porque `~/.cache/vasak/` ya es
+/// donde vive lo que no es de una sola aplicación.
+///
+/// Las dos rutas conviven a propósito. Un paquete no actualiza las dos
+/// aplicaciones en el mismo instante, y acá el que pierde es siempre el mismo:
+/// si el lanzador mira sólo la ruta nueva y el gestor todavía escribe en la
+/// vieja, `abrir()` devuelve `None`, el proveedor no aporta filas y **el
+/// lanzador sigue andando perfecto**. Nadie se entera hasta que alguien busca
+/// un archivo y no aparece. Probar las dos hace que no haya día de corte.
+///
+/// La vieja se saca cuando ya no le sirva a nadie; hasta entonces es la
+/// diferencia entre una transición invisible y una ventana de días en que la
+/// búsqueda de archivos no encuentra nada sin decirlo.
+///
+/// La versión va en la ruta para que subirla descarte lo viejo solo. Al lado,
+/// fuera del directorio de la versión, el gestor deja un `status.json` con el
+/// número de esquema y la fecha del último escaneo: es lo que va a permitir
+/// distinguir «todavía no hay índice» de «hay uno y es de otra versión», que
+/// desde acá se ven igual. Leerlo es el paso siguiente y no está hecho.
+const EN_LA_CACHE: &str = "vasak/global-search/v1/index";
+
+/// Donde lo dejaba el gestor: el `identifier` de su `tauri.conf.json`, que es
 /// lo que Tauri usa para el directorio de datos de cada aplicación.
-const INDICE: &str = "ar.net.vasak.vasak-file-manager/global-search/index";
+const EN_LOS_DATOS: &str = "ar.net.vasak.vasak-file-manager/global-search/index";
 
 /// Los campos que hacen falta acá, con el nombre que les puso el gestor.
 const CAMPO_RUTA: &str = "path";
@@ -60,13 +85,47 @@ const DEL_INDICE: usize = 60;
 const ICONO_ARCHIVO: &str = "text-x-generic";
 const ICONO_DIRECTORIO: &str = "folder";
 
-pub fn ruta_del_indice() -> Option<PathBuf> {
-    let base = match std::env::var_os("XDG_DATA_HOME") {
-        Some(valor) if !valor.is_empty() => PathBuf::from(valor),
-        _ => PathBuf::from(std::env::var_os("HOME")?).join(".local/share"),
-    };
+/// La base de un directorio del estándar, con su respaldo.
+///
+/// La variable **vacía** cuenta como ausente, no como raíz: un
+/// `XDG_CACHE_HOME=` en el entorno haría `join` sobre nada y daría una ruta
+/// relativa al directorio de trabajo, que es cualquier lado.
+fn base(variable: &str, respaldo: &str) -> Option<PathBuf> {
+    match std::env::var_os(variable) {
+        Some(valor) if !valor.is_empty() => Some(PathBuf::from(valor)),
+        _ => Some(PathBuf::from(std::env::var_os("HOME")?).join(respaldo)),
+    }
+}
 
-    Some(base.join(INDICE))
+/// Las rutas donde puede estar el índice, en el orden en que hay que probarlas.
+///
+/// Primero la nueva: durante la transición pueden existir las dos, y la vieja
+/// va a quedar congelada en lo que tuviera el día que el gestor dejó de
+/// escribirla. Servir eso teniendo al lado una al día sería peor que no tener
+/// respaldo.
+pub fn rutas_del_indice() -> Vec<PathBuf> {
+    rutas_desde(
+        base("XDG_CACHE_HOME", ".cache").as_deref(),
+        base("XDG_DATA_HOME", ".local/share").as_deref(),
+    )
+}
+
+/// El orden, sin leer el entorno.
+///
+/// Aparte para poder probarlo: el entorno es global al proceso y las pruebas
+/// corren en paralelo, así que una que lo toque decide el resultado de otra.
+fn rutas_desde(cache: Option<&Path>, datos: Option<&Path>) -> Vec<PathBuf> {
+    let mut rutas = Vec::new();
+
+    if let Some(cache) = cache {
+        rutas.push(cache.join(EN_LA_CACHE));
+    }
+
+    if let Some(datos) = datos {
+        rutas.push(datos.join(EN_LOS_DATOS));
+    }
+
+    rutas
 }
 
 /// El índice abierto, o nada si no hay uno que se entienda.
@@ -107,8 +166,23 @@ impl Indice {
         })
     }
 
+    /// El índice del primer lugar donde haya uno que se entienda.
+    ///
+    /// «Que se entienda» y no «que exista»: un directorio con un índice de un
+    /// esquema que no tiene los campos que hacen falta no sirve, y si se
+    /// aceptara por estar primero taparía a uno bueno que esté más abajo.
     pub fn del_lugar_de_siempre() -> Option<Self> {
-        Self::abrir(&ruta_del_indice()?)
+        Self::del_primero(&rutas_del_indice())
+    }
+
+    /// El primero de la lista que abra.
+    ///
+    /// **El primero que abre, no los dos.** Unir lo que haya en las dos rutas
+    /// serviría duplicados y, peor, mezclaría los de la ruta vieja —que quedó
+    /// congelada el día que el gestor dejó de escribirla— con los de la nueva,
+    /// sin que se note cuáles son cuáles.
+    fn del_primero(rutas: &[PathBuf]) -> Option<Self> {
+        rutas.iter().find_map(|ruta| Self::abrir(ruta))
     }
 
     /// Los archivos que coinciden con lo escrito.
@@ -331,5 +405,83 @@ mod tests {
         assert!(Indice::abrir(&ruta).is_none());
 
         let _ = std::fs::remove_dir_all(&ruta);
+    }
+
+    #[test]
+    fn la_cache_va_antes_que_los_datos() {
+        // El índice se mudó de los datos del gestor a la caché compartida. Si
+        // el orden se diera vuelta, una instalación con las dos serviría la
+        // vieja —congelada el día que el gestor dejó de escribirla— teniendo al
+        // lado una al día.
+        let rutas = rutas_desde(Some(Path::new("/c")), Some(Path::new("/d")));
+
+        assert_eq!(
+            rutas,
+            vec![
+                PathBuf::from("/c/vasak/global-search/v1/index"),
+                PathBuf::from("/d/ar.net.vasak.vasak-file-manager/global-search/index"),
+            ]
+        );
+    }
+
+    #[test]
+    fn la_ruta_nueva_es_la_que_acordamos_con_el_gestor() {
+        // Clavada a propósito: es un contrato entre dos aplicaciones que se
+        // actualizan por separado, y del lado de allá hay una prueba igual. Si
+        // alguien la cambia de un solo lado, que falle acá y no en silencio.
+        let rutas = rutas_desde(Some(Path::new("/c")), None);
+        assert_eq!(
+            rutas,
+            vec![PathBuf::from("/c/vasak/global-search/v1/index")]
+        );
+    }
+
+    #[test]
+    fn sin_directorio_no_se_inventa_una_ruta_relativa() {
+        // Un `XDG_CACHE_HOME=` vacío haría `join` sobre nada y daría una ruta
+        // relativa al directorio de trabajo, que en un daemon es cualquier lado.
+        assert!(rutas_desde(None, None).is_empty());
+        assert_eq!(rutas_desde(None, Some(Path::new("/d"))).len(), 1);
+    }
+
+    #[test]
+    fn se_abre_la_vieja_mientras_la_nueva_no_este() {
+        // La transición: el gestor todavía escribe donde escribía. Sin esto el
+        // proveedor no aporta filas y el lanzador sigue andando perfecto, que
+        // es la peor forma de romperse.
+        let vieja = indice_de_prueba(
+            "transicion-vieja",
+            &[("/home/pato/viejo.md", "viejo.md", 0)],
+        );
+        let nueva = std::env::temp_dir().join(format!("prism-no-esta-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&nueva);
+
+        let indice = Indice::del_primero(&[nueva, vieja]).expect("tendría que abrir la vieja");
+        assert_eq!(indice.buscar("viejo", 10).len(), 1);
+    }
+
+    #[test]
+    fn con_las_dos_gana_la_nueva_y_la_vieja_no_se_mezcla() {
+        // Unir las dos serviría duplicados y mezclaría lo congelado con lo que
+        // está al día, sin que se note cuál es cuál.
+        let nueva = indice_de_prueba("gana-nueva", &[("/home/pato/nuevo.md", "nuevo.md", 0)]);
+        let vieja = indice_de_prueba("pierde-vieja", &[("/home/pato/viejo.md", "viejo.md", 0)]);
+
+        let indice = Indice::del_primero(&[nueva, vieja]).expect("tendría que abrir");
+        assert_eq!(indice.buscar("nuevo", 10).len(), 1);
+        assert!(
+            indice.buscar("viejo", 10).is_empty(),
+            "la vieja no tiene que aportar nada cuando está la nueva"
+        );
+    }
+
+    #[test]
+    fn sin_ninguna_de_las_dos_no_hay_indice() {
+        // El gestor no está instalado, o nunca se escaneó. No es un error.
+        let ni = std::env::temp_dir().join(format!("prism-ni-una-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&ni);
+
+        assert!(Indice::del_primero(&[ni.join("a"), ni.join("b")]).is_none());
+        assert!(Indice::del_primero(&[]).is_none());
     }
 }
