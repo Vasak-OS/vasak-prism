@@ -83,9 +83,22 @@ pub fn buscar(
         return filas;
     }
 
+    // Y una letra con un espacio acota a uno solo. Va después de los prefijos
+    // de un carácter: `> f algo` es un comando que empieza con «f», no una
+    // búsqueda de archivos.
+    let (acotado, consulta) = match crate::proveedores::repartir(&consulta) {
+        crate::proveedores::Reparto::Uno(adonde, resto) => (Some(adonde), resto.to_string()),
+        crate::proveedores::Reparto::Todos(entera) => (None, entera.to_string()),
+    };
+    let toca = |cual: crate::proveedores::Acotado| acotado.is_none_or(|suyo| suyo == cual);
+
     // La cuenta va primera y sin gastar nada: no toca el disco ni la red, y si
-    // lo que se escribió no es una, no devuelve fila.
-    let calculo = crate::proveedores::calculo::resolver(&consulta);
+    // lo que se escribió no es una, no devuelve fila. Acotando no va: quien
+    // escribió `f ` pidió archivos.
+    let calculo = acotado
+        .is_none()
+        .then(|| crate::proveedores::calculo::resolver(&consulta))
+        .flatten();
 
     let pesos = estado
         .uso
@@ -93,23 +106,30 @@ pub fn buscar(
         .map(|uso| uso.lock().unwrap_or_else(|e| e.into_inner()).pesos())
         .unwrap_or_default();
 
-    let mut filas = estado.catalogo.buscar_con_uso(&consulta, limite, &pesos);
-
-    // El candado se toma para sacar el handle y se suelta enseguida: buscar se
-    // hace afuera.
-    let indice = {
-        let mut guardado = estado.archivos.lock().unwrap_or_else(|e| e.into_inner());
-        if guardado.is_none() {
-            *guardado = crate::proveedores::archivos::Indice::del_lugar_de_siempre().map(Arc::new);
-        }
-        guardado.clone()
+    let mut filas = if toca(crate::proveedores::Acotado::Aplicaciones) {
+        estado.catalogo.buscar_con_uso(&consulta, limite, &pesos)
+    } else {
+        Vec::new()
     };
 
-    if let Some(indice) = indice {
-        filas.extend(indice.buscar(&consulta, limite));
+    if toca(crate::proveedores::Acotado::Archivos) {
+        // El candado se toma para sacar el handle y se suelta enseguida: buscar
+        // se hace afuera.
+        let indice = {
+            let mut guardado = estado.archivos.lock().unwrap_or_else(|e| e.into_inner());
+            if guardado.is_none() {
+                *guardado =
+                    crate::proveedores::archivos::Indice::del_lugar_de_siempre().map(Arc::new);
+            }
+            guardado.clone()
+        };
+
+        if let Some(indice) = indice {
+            filas.extend(indice.buscar(&consulta, limite));
+        }
     }
 
-    {
+    if toca(crate::proveedores::Acotado::Ventanas) {
         let mut cache = estado.ventanas.lock().unwrap_or_else(|e| e.into_inner());
         filas.extend(crate::proveedores::ventanas::buscar(
             cache.lista(),
@@ -118,17 +138,21 @@ pub fn buscar(
         ));
     }
 
-    filas.extend(crate::proveedores::configuracion::buscar(
-        &estado.secciones,
-        &consulta,
-        &estado.idioma,
-        limite,
-    ));
+    if acotado.is_none() {
+        filas.extend(crate::proveedores::configuracion::buscar(
+            &estado.secciones,
+            &consulta,
+            &estado.idioma,
+            limite,
+        ));
+    }
 
     // Los recientes se leen del archivo donde el escritorio ya los anota, así
     // que no hay nada que indexar ni que vigilar. Sólo aparecen si el nombre
     // coincide: son archivos del usuario, no resultados que se ofrecen solos.
-    {
+    // Los recientes son archivos: acotando a archivos siguen valiendo, y
+    // acotando a otra cosa no.
+    if toca(crate::proveedores::Acotado::Archivos) {
         let mut cache = estado.recientes.lock().unwrap_or_else(|e| e.into_inner());
         filas.extend(crate::proveedores::recientes::buscar(
             cache.lista(),

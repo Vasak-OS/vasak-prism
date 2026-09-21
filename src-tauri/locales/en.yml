@@ -7,6 +7,7 @@ ventana:
   cerrar: Close
 lanzador:
   escribi: Type to search
+  prefijos: "f files · w windows · a apps · > command · ? web · : emoji"
   copiar: Enter copies the result
   buscarEn: "Search on {0}"
   ejecutar: Enter runs the command

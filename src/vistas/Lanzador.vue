@@ -194,6 +194,14 @@ onBeforeUnmount(() => {
       <p v-else-if="consulta.trim()" class="px-4 py-6 text-center text-sm text-tx-main/50">
         {{ t('lanzador.nada') }}
       </p>
+
+      <!-- Con el campo vacío el panel no mostraba nada, y era el único momento
+           en que hay lugar para decir que los prefijos existen. Una sintaxis
+           que no se ve es una sintaxis que no se usa: es lo que le pasó a la
+           búsqueda vieja, que no tenía ni atajo. -->
+      <p v-else class="px-4 py-4 text-center text-xs text-tx-main/40">
+        {{ t('lanzador.prefijos') }}
+      </p>
     </div>
   </div>
 </template>
