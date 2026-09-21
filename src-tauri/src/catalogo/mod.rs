@@ -58,6 +58,15 @@ pub fn escritorios_de(valor: &str) -> Vec<String> {
 /// en el que el catálogo esté a medio armar.
 pub struct Catalogo {
     aplicaciones: RwLock<Arc<Vec<Aplicacion>>>,
+    /// La fecha del archivo más nuevo que vio el último escaneo de esta
+    /// instancia, descartados incluidos.
+    ///
+    /// Vive acá además de en la caché porque no siempre hay caché: sin
+    /// `ruta_cache`, o si no se puede abrir, el escaneo igual calcula la marca
+    /// y tirarla dejaría a `esta_al_dia` leyendo cero. Y con cero, cualquier
+    /// archivo descartado cuenta como novedad y se vuelve a escanear en cada
+    /// comprobación — el mismo agujero que esto arregla, por el otro camino.
+    ultimo_visto: RwLock<i64>,
     idioma: String,
     escritorios: Vec<String>,
     ruta_cache: Option<PathBuf>,
@@ -67,6 +76,7 @@ impl Catalogo {
     pub fn nuevo(idioma: String, escritorios: Vec<String>, ruta_cache: Option<PathBuf>) -> Self {
         Self {
             aplicaciones: RwLock::new(Arc::new(Vec::new())),
+            ultimo_visto: RwLock::new(0),
             idioma,
             escritorios,
             ruta_cache,
@@ -98,13 +108,29 @@ impl Catalogo {
 
         let guardadas = cache.leer();
         let cantidad = guardadas.len();
+        // La marca viene con la lista: arrancar con la lista de la caché y la
+        // marca en cero haría que la primera comprobación diga «vieja» siempre.
+        self.anotar_marca(cache.ultimo_visto());
         self.reemplazar(guardadas);
         cantidad
     }
 
+    /// Deja anotada la fecha de lo último que se miró.
+    fn anotar_marca(&self, ultimo_visto: i64) {
+        *self.ultimo_visto.write().unwrap_or_else(|e| e.into_inner()) = ultimo_visto;
+    }
+
     /// Si lo que hay en memoria sigue valiendo para lo que hay en el disco.
+    ///
+    /// La marca de lo último que se miró sale de la caché y no de lo guardado:
+    /// los archivos que el escaneo descarta están en el disco y no en la lista,
+    /// así que compararse contra la lista los lee como novedades que nunca
+    /// dejan de serlo. Sin caché no hay marca, y entonces cualquier archivo
+    /// cuenta como nuevo — que es lo correcto: sin caché no hay nada al día.
     pub fn esta_al_dia(&self) -> bool {
-        cache::esta_al_dia(&self.aplicaciones(), &escaneo::archivos())
+        let ultimo_visto = *self.ultimo_visto.read().unwrap_or_else(|e| e.into_inner());
+
+        cache::esta_al_dia(&self.aplicaciones(), &escaneo::archivos(), ultimo_visto)
     }
 
     /// Lee el disco, reemplaza la lista y guarda la caché.
@@ -112,17 +138,20 @@ impl Catalogo {
     /// Devuelve `true` si la lista cambió. Lo mira quien avisa a la interfaz:
     /// un reindexado que da lo mismo que había no es novedad para nadie.
     pub fn reindexar(&self) -> bool {
-        let nuevas = escaneo::escanear(&self.idioma, &self.escritorios);
+        let (nuevas, ultimo_visto) = escaneo::escanear_con_marca(&self.idioma, &self.escritorios);
         let cambio = *self.aplicaciones() != nuevas;
 
         if let Some(ruta) = &self.ruta_cache {
             if let Ok(mut cache) = cache::Cache::abrir(ruta) {
                 // Que no se pueda guardar la caché no es motivo para no tener el
                 // índice: se pierde el atajo del próximo arranque, nada más.
-                let _ = cache.guardar(&nuevas);
+                let _ = cache.guardar(&nuevas, ultimo_visto);
             }
         }
 
+        // Se anota pase lo que pase con la caché: que no se pueda escribir el
+        // archivo no es motivo para olvidar lo que este escaneo acaba de ver.
+        self.anotar_marca(ultimo_visto);
         self.reemplazar(nuevas);
         cambio
     }
