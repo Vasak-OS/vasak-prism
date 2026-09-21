@@ -1,10 +1,6 @@
 [package]
 name = "vasak-prism"
-<<<<<<< HEAD
-version = "0.10.1"
-=======
-version = "0.11.0"
->>>>>>> origin/main
+version = "0.11.1"
 description = "El lanzador de VasakOS: una consulta, todos los resultados"
 authors = ["Vasak Group", "Joaquin (Pato) Decima"]
 edition = "2021"

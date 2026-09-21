@@ -5084,11 +5084,7 @@ dependencies = [
 
 [[package]]
 name = "vasak-prism"
-<<<<<<< HEAD
-version = "0.10.1"
-=======
-version = "0.11.0"
->>>>>>> origin/main
+version = "0.11.1"
 dependencies = [
  "dirs",
  "gdk",
