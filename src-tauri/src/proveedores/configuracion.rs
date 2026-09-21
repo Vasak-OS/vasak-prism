@@ -9,7 +9,7 @@
 //! que no lo deja separarse. Copiarla sería tener dos listas, y la de acá
 //! quedaría vieja la primera vez que alguien agregue una pantalla.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
@@ -105,10 +105,10 @@ impl Seccion {
 fn rutas() -> Vec<PathBuf> {
     let mut salida = Vec::new();
 
-    if let Some(propio) = std::env::var_os("XDG_DATA_HOME").filter(|valor| !valor.is_empty()) {
-        salida.push(PathBuf::from(propio).join(ARCHIVO));
-    } else if let Some(home) = std::env::var_os("HOME") {
-        salida.push(PathBuf::from(home).join(".local/share").join(ARCHIVO));
+    // Ver `catalogo::cache::ruta_por_defecto`: la variable vacía estaba cubierta
+    // y la relativa no.
+    if let Some(propio) = crate::rutas::base(dirs::data_dir()) {
+        salida.push(propio.join(ARCHIVO));
     }
 
     let dirs = std::env::var("XDG_DATA_DIRS").unwrap_or_default();
@@ -118,8 +118,15 @@ fn rutas() -> Vec<PathBuf> {
         dirs
     };
 
-    for base in dirs.split(':').filter(|parte| !parte.is_empty()) {
-        salida.push(PathBuf::from(base).join(ARCHIVO));
+    // `XDG_DATA_DIRS` no lo cubre `dirs`, así que el filtro va acá. El estándar
+    // pide lo mismo para ésta que para las demás: una entrada relativa se
+    // ignora, y la vacía es un caso de esa misma regla.
+    for base in dirs
+        .split(':')
+        .map(Path::new)
+        .filter(|parte| parte.is_absolute())
+    {
+        salida.push(base.join(ARCHIVO));
     }
 
     salida

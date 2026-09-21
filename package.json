@@ -1,7 +1,11 @@
 {
   "name": "vasak-prism",
   "private": true,
+<<<<<<< HEAD
   "version": "0.10.1",
+=======
+  "version": "0.11.0",
+>>>>>>> origin/main
   "type": "module",
   "scripts": {
     "dev": "bunx --bun vite",

@@ -9,6 +9,7 @@ pub mod comandos;
 pub mod lanzador;
 mod locales;
 pub mod proveedores;
+mod rutas;
 pub mod servicio;
 pub mod ventana;
 

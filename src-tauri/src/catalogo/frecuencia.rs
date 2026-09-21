@@ -32,10 +32,8 @@ const SEGUNDOS_POR_DIA: f64 = 86_400.0;
 
 /// Dónde vive: `$XDG_DATA_HOME/vasak-prism/uso.db`.
 pub fn ruta_por_defecto() -> Option<PathBuf> {
-    let base = match std::env::var_os("XDG_DATA_HOME") {
-        Some(valor) if !valor.is_empty() => PathBuf::from(valor),
-        _ => PathBuf::from(std::env::var_os("HOME")?).join(".local/share"),
-    };
+    // Ver `catalogo::cache::ruta_por_defecto`: misma regla, mismo motivo.
+    let base = crate::rutas::base(dirs::data_dir())?;
 
     Some(base.join("vasak-prism").join("uso.db"))
 }

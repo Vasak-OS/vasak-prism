@@ -34,10 +34,9 @@ pub fn directorios() -> Vec<PathBuf> {
 }
 
 fn data_home() -> Option<PathBuf> {
-    match std::env::var_os("XDG_DATA_HOME") {
-        Some(valor) if !valor.is_empty() => Some(PathBuf::from(valor)),
-        _ => std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share")),
-    }
+    // Ver `catalogo::cache::ruta_por_defecto`: la variable vacía estaba
+    // cubierta y la relativa no, y las dos dan lo mismo.
+    crate::rutas::base(dirs::data_dir())
 }
 
 fn data_dirs() -> Vec<PathBuf> {
