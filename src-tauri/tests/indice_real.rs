@@ -84,3 +84,31 @@ fn el_catalogo_arranca_de_la_cache_y_busca() {
 
     let _ = std::fs::remove_file(&ruta);
 }
+
+#[test]
+fn sin_caché_en_disco_tampoco_se_reindexa_en_cada_comprobación() {
+    // El mismo agujero por el otro camino. Sin `ruta_cache` no hay dónde
+    // guardar la marca, pero el escaneo igual la calcula: si se tira, la
+    // comprobación siguiente lee cero, cualquier archivo descartado cuenta como
+    // novedad, y se vuelve a escanear el disco entero cada vez que alguien
+    // pregunta.
+    //
+    // Se apoya en el disco de esta máquina, igual que las de arriba: sin
+    // aplicaciones instaladas no hay nada que comprobar y eso no es un error.
+    let catalogo = catalogo::Catalogo::nuevo(
+        "es_AR".to_string(),
+        catalogo::escritorios_de("Vasak:wlroots"),
+        None,
+    );
+
+    catalogo.reindexar();
+
+    if catalogo.aplicaciones().is_empty() {
+        return;
+    }
+
+    assert!(
+        catalogo.esta_al_dia(),
+        "recién escaneado tiene que darse por válido aunque no haya caché"
+    );
+}

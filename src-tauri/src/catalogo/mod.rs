@@ -58,6 +58,15 @@ pub fn escritorios_de(valor: &str) -> Vec<String> {
 /// en el que el catálogo esté a medio armar.
 pub struct Catalogo {
     aplicaciones: RwLock<Arc<Vec<Aplicacion>>>,
+    /// La fecha del archivo más nuevo que vio el último escaneo de esta
+    /// instancia, descartados incluidos.
+    ///
+    /// Vive acá además de en la caché porque no siempre hay caché: sin
+    /// `ruta_cache`, o si no se puede abrir, el escaneo igual calcula la marca
+    /// y tirarla dejaría a `esta_al_dia` leyendo cero. Y con cero, cualquier
+    /// archivo descartado cuenta como novedad y se vuelve a escanear en cada
+    /// comprobación — el mismo agujero que esto arregla, por el otro camino.
+    ultimo_visto: RwLock<i64>,
     idioma: String,
     escritorios: Vec<String>,
     ruta_cache: Option<PathBuf>,
@@ -67,6 +76,7 @@ impl Catalogo {
     pub fn nuevo(idioma: String, escritorios: Vec<String>, ruta_cache: Option<PathBuf>) -> Self {
         Self {
             aplicaciones: RwLock::new(Arc::new(Vec::new())),
+            ultimo_visto: RwLock::new(0),
             idioma,
             escritorios,
             ruta_cache,
@@ -98,8 +108,16 @@ impl Catalogo {
 
         let guardadas = cache.leer();
         let cantidad = guardadas.len();
+        // La marca viene con la lista: arrancar con la lista de la caché y la
+        // marca en cero haría que la primera comprobación diga «vieja» siempre.
+        self.anotar_marca(cache.ultimo_visto());
         self.reemplazar(guardadas);
         cantidad
+    }
+
+    /// Deja anotada la fecha de lo último que se miró.
+    fn anotar_marca(&self, ultimo_visto: i64) {
+        *self.ultimo_visto.write().unwrap_or_else(|e| e.into_inner()) = ultimo_visto;
     }
 
     /// Si lo que hay en memoria sigue valiendo para lo que hay en el disco.
@@ -110,12 +128,7 @@ impl Catalogo {
     /// dejan de serlo. Sin caché no hay marca, y entonces cualquier archivo
     /// cuenta como nuevo — que es lo correcto: sin caché no hay nada al día.
     pub fn esta_al_dia(&self) -> bool {
-        let ultimo_visto = self
-            .ruta_cache
-            .as_ref()
-            .and_then(|ruta| cache::Cache::abrir(ruta).ok())
-            .map(|cache| cache.ultimo_visto())
-            .unwrap_or(0);
+        let ultimo_visto = *self.ultimo_visto.read().unwrap_or_else(|e| e.into_inner());
 
         cache::esta_al_dia(&self.aplicaciones(), &escaneo::archivos(), ultimo_visto)
     }
@@ -136,6 +149,9 @@ impl Catalogo {
             }
         }
 
+        // Se anota pase lo que pase con la caché: que no se pueda escribir el
+        // archivo no es motivo para olvidar lo que este escaneo acaba de ver.
+        self.anotar_marca(ultimo_visto);
         self.reemplazar(nuevas);
         cambio
     }
