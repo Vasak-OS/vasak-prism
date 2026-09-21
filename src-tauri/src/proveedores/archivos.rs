@@ -86,15 +86,39 @@ const ICONO_ARCHIVO: &str = "text-x-generic";
 const ICONO_DIRECTORIO: &str = "folder";
 
 /// La base de un directorio del estándar, con su respaldo.
-///
-/// La variable **vacía** cuenta como ausente, no como raíz: un
-/// `XDG_CACHE_HOME=` en el entorno haría `join` sobre nada y daría una ruta
-/// relativa al directorio de trabajo, que es cualquier lado.
 fn base(variable: &str, respaldo: &str) -> Option<PathBuf> {
-    match std::env::var_os(variable) {
-        Some(valor) if !valor.is_empty() => Some(PathBuf::from(valor)),
-        _ => Some(PathBuf::from(std::env::var_os("HOME")?).join(respaldo)),
+    base_desde(
+        std::env::var_os(variable).as_deref(),
+        std::env::var_os("HOME").as_deref(),
+        respaldo,
+    )
+}
+
+/// Absoluta o nada.
+///
+/// El estándar pide que estas variables sean absolutas y que una relativa se
+/// **ignore**, y acá además importa por lo que pasaría si no: una base relativa
+/// haría que el índice se buscara respecto del directorio de trabajo, que en un
+/// daemon lanzado por systemd no es el home de nadie. La búsqueda de archivos
+/// dependería de desde dónde arrancó el proceso.
+///
+/// Una regla y no dos: la variable vacía es un caso de la misma, porque la
+/// cadena vacía tampoco es absoluta. Antes estaba tratada aparte y la relativa
+/// se colaba, que es el mismo agujero con otra forma.
+///
+/// Ignorar no es fallar: una `XDG_CACHE_HOME` relativa cae al respaldo, como si
+/// no estuviera. Sin `HOME` absoluto no queda de dónde, y ahí sí es `None`.
+fn base_desde(
+    valor: Option<&std::ffi::OsStr>,
+    home: Option<&std::ffi::OsStr>,
+    respaldo: &str,
+) -> Option<PathBuf> {
+    if let Some(suya) = valor.map(Path::new).filter(|ruta| ruta.is_absolute()) {
+        return Some(suya.to_path_buf());
     }
+
+    let home = Path::new(home?);
+    home.is_absolute().then(|| home.join(respaldo))
 }
 
 /// Las rutas donde puede estar el índice, en el orden en que hay que probarlas.
@@ -483,5 +507,57 @@ mod tests {
 
         assert!(Indice::del_primero(&[ni.join("a"), ni.join("b")]).is_none());
         assert!(Indice::del_primero(&[]).is_none());
+    }
+
+    #[test]
+    fn una_base_relativa_se_ignora() {
+        // El estándar pide ignorarla, y acá además importa por lo que pasaría:
+        // el índice se buscaría respecto del directorio de trabajo, que en un
+        // daemon lanzado por systemd no es el home de nadie.
+        let home = Some(std::ffi::OsStr::new("/home/pato"));
+
+        for relativa in ["relativa", "./relativa", "", "../arriba"] {
+            assert_eq!(
+                base_desde(Some(std::ffi::OsStr::new(relativa)), home, ".cache"),
+                Some(PathBuf::from("/home/pato/.cache")),
+                "«{relativa}» tendría que caer al respaldo"
+            );
+        }
+    }
+
+    #[test]
+    fn una_base_absoluta_se_usa_tal_cual() {
+        assert_eq!(
+            base_desde(
+                Some(std::ffi::OsStr::new("/tmp/cache")),
+                Some(std::ffi::OsStr::new("/home/pato")),
+                ".cache"
+            ),
+            Some(PathBuf::from("/tmp/cache"))
+        );
+    }
+
+    #[test]
+    fn sin_un_home_absoluto_no_hay_base() {
+        // Devolver algo relativo sería peor que no devolver nada: `abrir()`
+        // probaría una ruta que depende de dónde arrancó el proceso, y podría
+        // hasta encontrar algo que no es el índice.
+        assert_eq!(base_desde(None, None, ".cache"), None);
+        assert_eq!(
+            base_desde(None, Some(std::ffi::OsStr::new("casa")), ".cache"),
+            None
+        );
+        assert_eq!(
+            base_desde(None, Some(std::ffi::OsStr::new("")), ".cache"),
+            None
+        );
+    }
+
+    #[test]
+    fn ninguna_ruta_candidata_es_relativa() {
+        // El invariante de arriba, visto desde donde importa.
+        for ruta in rutas_del_indice() {
+            assert!(ruta.is_absolute(), "{ruta:?} es relativa");
+        }
     }
 }
