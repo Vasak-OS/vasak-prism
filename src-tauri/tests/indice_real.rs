@@ -15,7 +15,11 @@ fn ruta_temporal(nombre: &str) -> std::path::PathBuf {
 #[test]
 fn lo_que_sale_del_disco_entra_y_sale_igual_de_la_cache() {
     let escritorios = catalogo::escritorios_de("Vasak:wlroots");
-    let aplicaciones = escaneo::escanear("es_AR", &escritorios);
+    // Con la marca, que es la fecha del archivo más nuevo que el escaneo miró
+    // —descartadas incluidas—. Sacarla de las aplicaciones guardadas es lo que
+    // hacía que esta prueba fallara en cualquier máquina donde el `.desktop`
+    // más nuevo del disco fuera uno que el escaneo descarta.
+    let (aplicaciones, ultimo_visto) = escaneo::escanear_con_marca("es_AR", &escritorios);
 
     if aplicaciones.is_empty() {
         // Una máquina sin aplicaciones instaladas. No hay nada que comprobar y
@@ -27,14 +31,20 @@ fn lo_que_sale_del_disco_entra_y_sale_igual_de_la_cache() {
     let _ = std::fs::remove_file(&ruta);
 
     let mut almacen = cache::Cache::abrir(&ruta).expect("abrir la caché");
-    almacen.guardar(&aplicaciones).expect("guardar");
+    almacen
+        .guardar(&aplicaciones, ultimo_visto)
+        .expect("guardar");
 
     let releidas = cache::Cache::abrir(&ruta).expect("reabrir").leer();
     assert_eq!(releidas, aplicaciones);
 
     // Y recién escrita tiene que darse por válida: si no, el proceso reindexa
     // en cada arranque y la caché no sirve para nada.
-    assert!(cache::esta_al_dia(&releidas, &escaneo::archivos()));
+    assert!(cache::esta_al_dia(
+        &releidas,
+        &escaneo::archivos(),
+        ultimo_visto
+    ));
 
     let _ = std::fs::remove_file(&ruta);
 }

@@ -156,10 +156,33 @@ fn modificado(entrada: &fs::DirEntry) -> i64 {
 
 /// Lee y parsea todos los archivos, y deja las que se pueden mostrar y lanzar.
 pub fn escanear(idioma: &str, escritorios: &[String]) -> Vec<Aplicacion> {
-    archivos()
-        .into_iter()
-        .filter_map(|archivo| leer(&archivo, idioma, escritorios))
-        .collect()
+    escanear_con_marca(idioma, escritorios).0
+}
+
+/// Lo mismo, más la fecha del archivo más nuevo que se **miró**.
+///
+/// La distinción es la que importa: la marca sale de todos los archivos
+/// recorridos, incluidos los que se descartan por `NoDisplay`, por ser de otro
+/// escritorio o porque su programa no está. Esos están en el disco y no en la
+/// caché, así que quien compare contra la fecha de lo guardado va a ver el más
+/// nuevo de ellos como si fuera una aplicación recién instalada — y como el
+/// escaneo lo vuelve a descartar, no se sale nunca de ahí.
+///
+/// Se devuelve junto con la lista y no en otra función para no recorrer el
+/// disco dos veces: son los mismos archivos.
+pub fn escanear_con_marca(idioma: &str, escritorios: &[String]) -> (Vec<Aplicacion>, i64) {
+    let vistos = archivos();
+    let marca = vistos
+        .iter()
+        .map(|archivo| archivo.mtime)
+        .max()
+        .unwrap_or(0);
+    let aplicaciones = vistos
+        .iter()
+        .filter_map(|archivo| leer(archivo, idioma, escritorios))
+        .collect();
+
+    (aplicaciones, marca)
 }
 
 /// Lee un archivo suelto. Devuelve `None` si no es una entrada para mostrar.

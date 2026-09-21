@@ -131,7 +131,11 @@ impl Cache {
     /// En una sola porque son quinientas escrituras: de a una, cada `INSERT` es
     /// su propia transacción y su propio `fsync`, y lo que tarda medio segundo
     /// pasa a tardar medio minuto en un disco mecánico.
-    pub fn guardar(&mut self, aplicaciones: &[Aplicacion]) -> Result<(), String> {
+    pub fn guardar(
+        &mut self,
+        aplicaciones: &[Aplicacion],
+        ultimo_visto: i64,
+    ) -> Result<(), String> {
         let transaccion = self.conexion.transaction().map_err(|e| e.to_string())?;
 
         transaccion
@@ -151,7 +155,33 @@ impl Cache {
             }
         }
 
+        transaccion
+            .execute(
+                "INSERT OR REPLACE INTO meta (clave, valor) VALUES ('ultimo_visto', ?1)",
+                [ultimo_visto.to_string()],
+            )
+            .map_err(|e| e.to_string())?;
+
         transaccion.commit().map_err(|e| e.to_string())
+    }
+
+    /// La fecha del archivo más nuevo que vio el escaneo que guardó esto.
+    ///
+    /// Cero cuando no está, que es el caso de una caché escrita por una versión
+    /// anterior. Con cero, la primera comprobación da «vieja» y se reindexa una
+    /// vez; de ahí en más la marca queda escrita y la cosa se estabiliza. Es un
+    /// reindexado de más contra el que había antes, que era uno por arranque
+    /// para siempre.
+    pub fn ultimo_visto(&self) -> i64 {
+        self.conexion
+            .query_row(
+                "SELECT valor FROM meta WHERE clave = 'ultimo_visto'",
+                [],
+                |fila| fila.get::<_, String>(0),
+            )
+            .ok()
+            .and_then(|valor| valor.parse().ok())
+            .unwrap_or(0)
     }
 }
 
@@ -163,17 +193,24 @@ impl Cache {
 ///
 /// No alcanza con mirar la fecha de los directorios: un archivo editado en su
 /// lugar no cambia la del directorio que lo contiene.
-pub fn esta_al_dia(guardadas: &[Aplicacion], archivos: &[Archivo]) -> bool {
+pub fn esta_al_dia(guardadas: &[Aplicacion], archivos: &[Archivo], ultimo_visto: i64) -> bool {
     // Las entradas que el escaneo descarta —`NoDisplay`, de otro escritorio, sin
     // programa— están en el disco y no en la caché, así que no se pueden contar
     // de los dos lados. Lo que se comprueba es que ninguna de las guardadas haya
-    // cambiado, y que ningún archivo sea más nuevo que lo que se guardó.
+    // cambiado, y que ningún archivo sea más nuevo que el más nuevo que **se
+    // miró** al guardar.
+    //
+    // Que la marca venga de lo mirado y no de lo guardado es el punto. Antes
+    // salía del `mtime` más alto de las aplicaciones guardadas, y entonces un
+    // `.desktop` descartado que fuera el más nuevo del disco se leía como una
+    // aplicación recién instalada: la caché se regeneraba, el archivo seguía
+    // descartado y seguía siendo el más nuevo, y la próxima comprobación volvía
+    // a decir lo mismo. El catálogo se reindexaba entero en cada arranque y
+    // nada lo decía.
     let en_cache: HashMap<&str, i64> = guardadas
         .iter()
         .map(|app| (app.id.as_str(), app.mtime))
         .collect();
-
-    let ultima_guardada = guardadas.iter().map(|app| app.mtime).max().unwrap_or(0);
 
     for archivo in archivos {
         match en_cache.get(archivo.id.as_str()) {
@@ -183,7 +220,7 @@ pub fn esta_al_dia(guardadas: &[Aplicacion], archivos: &[Archivo]) -> bool {
             // No estaba. Puede ser una entrada que el escaneo descarta y
             // entonces está bien que falte, o una nueva. La fecha lo dice: una
             // nueva es más nueva que todo lo que había.
-            None if archivo.mtime <= ultima_guardada => {}
+            None if archivo.mtime <= ultimo_visto => {}
             None => return false,
         }
     }
@@ -235,7 +272,7 @@ mod tests {
         firefox.palabras = vec!["web".to_string()];
         firefox.comentario = Some("Navegá la web".to_string());
 
-        cache.guardar(&[firefox.clone()]).unwrap();
+        cache.guardar(&[firefox.clone()], 10).unwrap();
 
         assert_eq!(cache.leer(), vec![firefox]);
     }
@@ -246,9 +283,9 @@ mod tests {
         // aplicaciones desinstaladas.
         let mut cache = Cache::en_memoria().unwrap();
         cache
-            .guardar(&[una("a.desktop", 1), una("b.desktop", 1)])
+            .guardar(&[una("a.desktop", 1), una("b.desktop", 1)], 1)
             .unwrap();
-        cache.guardar(&[una("a.desktop", 2)]).unwrap();
+        cache.guardar(&[una("a.desktop", 2)], 2).unwrap();
 
         let leidas = cache.leer();
         assert_eq!(leidas.len(), 1);
@@ -264,7 +301,7 @@ mod tests {
     fn sin_cambios_la_cache_vale() {
         let guardadas = [una("a.desktop", 5), una("b.desktop", 7)];
         let archivos = [archivo("a.desktop", 5), archivo("b.desktop", 7)];
-        assert!(esta_al_dia(&guardadas, &archivos));
+        assert!(esta_al_dia(&guardadas, &archivos, 7));
     }
 
     #[test]
@@ -273,21 +310,21 @@ mod tests {
         // ninguno: una comprobación por cantidad lo deja pasar.
         let guardadas = [una("a.desktop", 5)];
         let archivos = [archivo("a.desktop", 6)];
-        assert!(!esta_al_dia(&guardadas, &archivos));
+        assert!(!esta_al_dia(&guardadas, &archivos, 5));
     }
 
     #[test]
     fn una_aplicacion_nueva_invalida_la_cache() {
         let guardadas = [una("a.desktop", 5)];
         let archivos = [archivo("a.desktop", 5), archivo("b.desktop", 9)];
-        assert!(!esta_al_dia(&guardadas, &archivos));
+        assert!(!esta_al_dia(&guardadas, &archivos, 5));
     }
 
     #[test]
     fn una_aplicacion_borrada_invalida_la_cache() {
         let guardadas = [una("a.desktop", 5), una("b.desktop", 5)];
         let archivos = [archivo("a.desktop", 5)];
-        assert!(!esta_al_dia(&guardadas, &archivos));
+        assert!(!esta_al_dia(&guardadas, &archivos, 5));
     }
 
     #[test]
@@ -297,11 +334,60 @@ mod tests {
         // vencida siempre y no serviría para nada.
         let guardadas = [una("a.desktop", 5)];
         let archivos = [archivo("a.desktop", 5), archivo("oculta.desktop", 3)];
-        assert!(esta_al_dia(&guardadas, &archivos));
+        assert!(esta_al_dia(&guardadas, &archivos, 5));
+    }
+
+    #[test]
+    fn la_descartada_mas_nueva_del_disco_no_vence_la_cache() {
+        // El caso que hacía reindexar en cada arranque. `oculta.desktop` es
+        // `NoDisplay`, así que nunca va a estar en la caché, y además es el
+        // archivo más nuevo del disco.
+        //
+        // Antes la marca salía del `mtime` más alto de lo **guardado** —5— así
+        // que la descartada, con 9, se leía como una aplicación recién
+        // instalada. Y no se salía nunca: se regeneraba la caché, la entrada
+        // seguía descartada, seguía siendo la más nueva, y la comprobación
+        // siguiente decía lo mismo. Nada lo avisaba.
+        //
+        // Ahora la marca es la del archivo más nuevo que el escaneo **miró**,
+        // descartadas incluidas, así que 9 no es novedad: ya se había visto.
+        let guardadas = [una("a.desktop", 5)];
+        let archivos = [archivo("a.desktop", 5), archivo("oculta.desktop", 9)];
+
+        assert!(esta_al_dia(&guardadas, &archivos, 9));
+    }
+
+    #[test]
+    fn una_aplicacion_nueva_despues_de_esa_marca_si_la_vence() {
+        // La otra mitad, que es la que no hay que romper al arreglar lo de
+        // arriba: subir la marca no puede hacer que una instalación de verdad
+        // pase desapercibida.
+        let guardadas = [una("a.desktop", 5)];
+        let archivos = [
+            archivo("a.desktop", 5),
+            archivo("oculta.desktop", 9),
+            archivo("nueva.desktop", 10),
+        ];
+
+        assert!(!esta_al_dia(&guardadas, &archivos, 9));
+    }
+
+    #[test]
+    fn la_marca_se_guarda_y_se_relee() {
+        // Sin persistirla, cada arranque empezaría con cero y la primera
+        // comprobación diría «vieja» siempre: el mismo reindexado por arranque
+        // con otra causa.
+        let mut cache = Cache::en_memoria().unwrap();
+
+        assert_eq!(cache.ultimo_visto(), 0, "una caché nueva no vio nada");
+
+        cache.guardar(&[una("a.desktop", 5)], 9).unwrap();
+
+        assert_eq!(cache.ultimo_visto(), 9);
     }
 
     #[test]
     fn una_cache_vacia_nunca_esta_al_dia_si_hay_archivos() {
-        assert!(!esta_al_dia(&[], &[archivo("a.desktop", 1)]));
+        assert!(!esta_al_dia(&[], &[archivo("a.desktop", 1)], 0));
     }
 }

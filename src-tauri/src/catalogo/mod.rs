@@ -103,8 +103,21 @@ impl Catalogo {
     }
 
     /// Si lo que hay en memoria sigue valiendo para lo que hay en el disco.
+    ///
+    /// La marca de lo último que se miró sale de la caché y no de lo guardado:
+    /// los archivos que el escaneo descarta están en el disco y no en la lista,
+    /// así que compararse contra la lista los lee como novedades que nunca
+    /// dejan de serlo. Sin caché no hay marca, y entonces cualquier archivo
+    /// cuenta como nuevo — que es lo correcto: sin caché no hay nada al día.
     pub fn esta_al_dia(&self) -> bool {
-        cache::esta_al_dia(&self.aplicaciones(), &escaneo::archivos())
+        let ultimo_visto = self
+            .ruta_cache
+            .as_ref()
+            .and_then(|ruta| cache::Cache::abrir(ruta).ok())
+            .map(|cache| cache.ultimo_visto())
+            .unwrap_or(0);
+
+        cache::esta_al_dia(&self.aplicaciones(), &escaneo::archivos(), ultimo_visto)
     }
 
     /// Lee el disco, reemplaza la lista y guarda la caché.
@@ -112,14 +125,14 @@ impl Catalogo {
     /// Devuelve `true` si la lista cambió. Lo mira quien avisa a la interfaz:
     /// un reindexado que da lo mismo que había no es novedad para nadie.
     pub fn reindexar(&self) -> bool {
-        let nuevas = escaneo::escanear(&self.idioma, &self.escritorios);
+        let (nuevas, ultimo_visto) = escaneo::escanear_con_marca(&self.idioma, &self.escritorios);
         let cambio = *self.aplicaciones() != nuevas;
 
         if let Some(ruta) = &self.ruta_cache {
             if let Ok(mut cache) = cache::Cache::abrir(ruta) {
                 // Que no se pueda guardar la caché no es motivo para no tener el
                 // índice: se pierde el atajo del próximo arranque, nada más.
-                let _ = cache.guardar(&nuevas);
+                let _ = cache.guardar(&nuevas, ultimo_visto);
             }
         }
 
