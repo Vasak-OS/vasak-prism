@@ -23,10 +23,8 @@ const ICONO: &str = "document-open-recent";
 
 /// Dónde anota el escritorio lo que se abrió.
 pub fn ruta_del_archivo() -> Option<PathBuf> {
-    let base = match std::env::var_os("XDG_DATA_HOME") {
-        Some(valor) if !valor.is_empty() => PathBuf::from(valor),
-        _ => PathBuf::from(std::env::var_os("HOME")?).join(".local/share"),
-    };
+    // Ver `catalogo::cache::ruta_por_defecto`: misma regla, mismo motivo.
+    let base = crate::rutas::base(dirs::data_dir())?;
 
     Some(base.join("recently-used.xbel"))
 }
@@ -156,11 +154,27 @@ pub fn buscar(recientes: &[Reciente], consulta: &str, limite: usize) -> Vec<Resu
 pub struct Cache {
     fecha: Option<i64>,
     lista: Vec<Reciente>,
+    /// De dónde lee, resuelto una vez.
+    ///
+    /// Guardada y no resuelta en cada `actualizar()` para que la prueba pueda
+    /// apuntar a un archivo suyo **sin tocar el entorno**. Tocarlo adentro de
+    /// una prueba es tocárselo a las que corren en paralelo en el mismo
+    /// proceso, y el fallo aparece en otra prueba y sin motivo visible — está
+    /// escrito así en `catalogo::escaneo`, y acá se hacía justo lo contrario.
+    ruta: Option<PathBuf>,
 }
 
 impl Cache {
     pub fn nueva() -> Self {
-        let mut cache = Self::default();
+        Self::en(ruta_del_archivo())
+    }
+
+    /// Una caché que lee de donde se le diga.
+    fn en(ruta: Option<PathBuf>) -> Self {
+        let mut cache = Self {
+            ruta,
+            ..Self::default()
+        };
         cache.actualizar();
         cache
     }
@@ -172,7 +186,7 @@ impl Cache {
     }
 
     fn actualizar(&mut self) {
-        let Some(ruta) = ruta_del_archivo() else {
+        let Some(ruta) = self.ruta.clone() else {
             return;
         };
 
@@ -269,25 +283,27 @@ mod tests {
     fn la_cache_relee_cuando_el_archivo_cambia() {
         // Un lanzador que vive prendido no puede quedarse con la lista del día
         // que se inició la sesión.
-        let ruta =
-            std::env::temp_dir().join(format!("prism-recientes-{}.xbel", std::process::id()));
-        let anterior = std::env::var_os("XDG_DATA_HOME");
-        // La caché mira `$XDG_DATA_HOME/recently-used.xbel`, así que el
-        // directorio de prueba tiene que ser ése.
-        let directorio = ruta
-            .parent()
-            .unwrap()
-            .join(format!("prism-xdg-{}", std::process::id()));
+        //
+        // Antes esto escribía `XDG_DATA_HOME` en el entorno del proceso para
+        // apuntar la caché a un archivo de prueba. El entorno es de todo el
+        // proceso y las pruebas corren en paralelo, así que se lo estaba
+        // cambiando a las demás: el fallo aparece en otra prueba, al azar y sin
+        // motivo visible. Ahora la caché recibe su ruta.
+        let directorio = std::env::temp_dir().join(format!(
+            "prism-recientes-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = std::fs::remove_dir_all(&directorio);
         std::fs::create_dir_all(&directorio).unwrap();
         let archivo = directorio.join("recently-used.xbel");
-        std::env::set_var("XDG_DATA_HOME", &directorio);
 
         std::fs::write(
             &archivo,
             r#"<bookmark href="file:///home/pato/uno.txt" added="x">"#,
         )
         .unwrap();
-        let mut cache = Cache::nueva();
+        let mut cache = Cache::en(Some(archivo.clone()));
         assert_eq!(cache.lista().len(), 1);
 
         // La fecha tiene segundos de resolución: sin esperar, el cambio no se ve.
@@ -298,12 +314,8 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(cache.lista().len(), 2);
+        assert_eq!(cache.lista().len(), 2, "la caché tiene que releer");
 
-        match anterior {
-            Some(valor) => std::env::set_var("XDG_DATA_HOME", valor),
-            None => std::env::remove_var("XDG_DATA_HOME"),
-        }
         let _ = std::fs::remove_dir_all(&directorio);
     }
 

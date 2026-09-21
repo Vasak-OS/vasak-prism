@@ -29,10 +29,13 @@ const ESQUEMA: i64 = 1;
 /// entero en cualquier momento, y no tiene por qué sobrevivir a un borrado ni
 /// entrar en una copia de respaldo.
 pub fn ruta_por_defecto() -> Option<PathBuf> {
-    let base = match std::env::var_os("XDG_CACHE_HOME") {
-        Some(valor) if !valor.is_empty() => PathBuf::from(valor),
-        _ => PathBuf::from(std::env::var_os("HOME")?).join(".cache"),
-    };
+    // Por `dirs` y no leyendo el entorno acá: trataba la variable **vacía** y
+    // no la **relativa**, que tiene la misma consecuencia —una ruta respecto
+    // del directorio de trabajo, que en un daemon de systemd es cualquier
+    // lado—. `dirs` lo cubre con una sola regla, porque la cadena vacía tampoco
+    // es absoluta. Sobre `HOME` sólo mira que no esté vacía, así que el filtro
+    // cierra esa otra mitad.
+    let base = crate::rutas::base(dirs::cache_dir())?;
 
     Some(base.join("vasak-prism").join("aplicaciones.db"))
 }
