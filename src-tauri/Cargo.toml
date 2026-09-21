@@ -1,6 +1,6 @@
 [package]
 name = "vasak-prism"
-version = "0.10.0"
+version = "0.11.0"
 description = "El lanzador de VasakOS: una consulta, todos los resultados"
 authors = ["Vasak Group", "Joaquin (Pato) Decima"]
 edition = "2021"
@@ -18,6 +18,9 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# Los directorios base del estándar: la regla de que una variable relativa o
+# vacía se ignora vive ahí y no en una copia por módulo.
+dirs = "6"
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
