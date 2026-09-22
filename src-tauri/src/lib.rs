@@ -101,6 +101,9 @@ pub fn run(mostrar_al_arrancar: bool) {
                 archivos: Mutex::new(
                     proveedores::archivos::Indice::del_lugar_de_siempre().map(Arc::new),
                 ),
+                escaneos: proveedores::archivos::escaneo::Escaneos::nuevos(
+                    proveedores::archivos::contrato::base_de_cache(),
+                ),
                 ventanas: Mutex::new(proveedores::ventanas::Cache::nueva()),
                 secciones: proveedores::configuracion::del_disco(),
                 idioma: locales::idioma_del_sistema(),

@@ -36,7 +36,7 @@ use std::cell::RefCell;
 
 use gtk::prelude::*;
 use gtk_layer_shell::{KeyboardMode, Layer, LayerShell};
-use tauri::{AppHandle, Emitter, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 /// El nombre de la ventana de Tauri. Es el que nombra la capacidad.
 pub const ETIQUETA: &str = "main";
@@ -214,6 +214,18 @@ fn mostrar_aca(app: &AppHandle) {
     // siempre que se muestra y no al construir: la ventana se construye una vez
     // y se abre cientos.
     let _ = app.emit(MOSTRADA, ());
+
+    // Y se mira si el índice de archivos quedó viejo. Acá y no al arrancar la
+    // sesión: al arrancar nadie pidió nada todavía y compite con el escritorio
+    // entero; acá alguien abrió el lanzador, que es exactamente cuando importa
+    // que esté al día. Lo que hace en este hilo es leer un archivo chico y
+    // decidir — si hay que escanear, el escaneo va en otro hilo.
+    //
+    // Estamos en el hilo principal, que es el de la interfaz: nada de lo que
+    // pase acá puede tardar o la ventana se abre trabada.
+    if let Some(estado) = app.try_state::<crate::comandos::Estado>() {
+        estado.escaneos.refrescar_si_conviene();
+    }
 }
 
 fn esconder_aca() {
