@@ -43,7 +43,7 @@ pub struct Estado {
     /// el candado tomado durante la búsqueda, escribir rápido hace que cada
     /// tecla espere a la anterior.
     pub archivos: Mutex<Option<Arc<crate::proveedores::archivos::Indice>>>,
-    /// Quién mantiene ese índice al día, que desde la 0.12 es este programa.
+    /// Quién mantiene ese índice al día, que desde la 0.13 es este programa.
     ///
     /// No lleva candado: adentro ya tiene el suyo para no arrancar dos escaneos
     /// a la vez, y ponerle uno acá haría que decidir si conviene escanear

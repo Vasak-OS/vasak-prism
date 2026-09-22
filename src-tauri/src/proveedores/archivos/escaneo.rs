@@ -1,4 +1,4 @@
-//! Recorrer el disco y escribir el índice, que desde la 0.12 es trabajo de acá.
+//! Recorrer el disco y escribir el índice, que desde la 0.13 es trabajo de acá.
 //!
 //! # Por qué se mudó
 //!
@@ -153,6 +153,34 @@ pub fn es_ignorada(ruta: &str, ignoradas: &[String]) -> bool {
 
         ruta.contains(&format!("/{limpia}/")) || ruta.ends_with(&format!("/{limpia}"))
     })
+}
+
+/// Las reglas que valen adentro de una raíz.
+///
+/// Una regla absoluta que **contiene** a la raíz no puede aplicarse ahí: la
+/// raíz se está recorriendo porque alguien la pidió, así que excluirla por una
+/// regla que habla de un directorio de más arriba es desobedecer lo pedido.
+///
+/// No es teórico y por poco se va instalado: `/run` está en la lista —es el
+/// `/run` del sistema, lleno de sockets y de archivos de estado— y en Arch y en
+/// Fedora udisks2 monta lo que se enchufa en `/run/media/$USER/`. Con la regla
+/// aplicada a secas, **ningún pendrive se indexaba nunca**, y sin ningún aviso:
+/// el recorrido se podaba en la raíz misma.
+///
+/// Las reglas por nombre —`node_modules`, `.git`— no entran en esto: valen en
+/// cualquier nivel justamente porque no hablan de un lugar.
+fn reglas_para(raiz: &Path, ignoradas: &[String]) -> Vec<String> {
+    ignoradas
+        .iter()
+        .filter(|regla| {
+            let limpia = regla.trim().trim_end_matches('/');
+            if !limpia.starts_with('/') {
+                return true;
+            }
+            !(raiz == Path::new(limpia) || raiz.starts_with(format!("{limpia}/")))
+        })
+        .cloned()
+        .collect()
 }
 
 /// Desde dónde se recorre.
@@ -421,11 +449,14 @@ pub fn escanear(
         if cancelado {
             break;
         }
+        // Por raíz y no una vez: lo que excluye a una puede ser justamente lo
+        // que otra pidió recorrer.
+        let reglas = reglas_para(raiz, ignoradas);
         for entrada in WalkDir::new(raiz)
             .follow_links(false)
             .max_depth(PROFUNDIDAD.max(1))
             .into_iter()
-            .filter_entry(|e| !es_ignorada(&e.path().to_string_lossy(), ignoradas))
+            .filter_entry(|e| !es_ignorada(&e.path().to_string_lossy(), &reglas))
         {
             if cancelar.load(Ordering::SeqCst) {
                 cancelado = true;
@@ -680,6 +711,46 @@ proc /proc proc rw,nosuid 0 0
         assert!(raices_desde(Some(PathBuf::from("casa")), "").is_empty());
         assert!(raices_desde(Some(PathBuf::from("")), "").is_empty());
         assert!(raices_desde(None, "").is_empty());
+    }
+
+    #[test]
+    fn una_regla_que_contiene_a_la_raiz_no_la_poda() {
+        // Las dos funciones estaban bien por separado y mal juntas:
+        // `raices_desde` devuelve `/run/media/pato/USB` y `/run` está en la
+        // lista de rutas del sistema, así que el recorrido se podaba en la raíz
+        // misma. En Arch y en Fedora eso es todo pendrive que se enchufe, sin
+        // ningún aviso.
+        let lista = ignoradas();
+        let raiz = PathBuf::from("/run/media/pato/USB");
+
+        assert!(
+            es_ignorada("/run/media/pato/USB", &lista),
+            "la regla suelta sí la saca, que es de donde venía el problema"
+        );
+
+        let reglas = reglas_para(&raiz, &lista);
+        assert!(!es_ignorada("/run/media/pato/USB", &reglas));
+        assert!(!es_ignorada(
+            "/run/media/pato/USB/Documentos/carta.odt",
+            &reglas
+        ));
+
+        assert!(
+            es_ignorada("/run/media/pato/USB/proyecto/node_modules", &reglas),
+            "las reglas por nombre siguen valiendo adentro de la raíz"
+        );
+    }
+
+    #[test]
+    fn recorrer_la_casa_no_deja_de_excluir_el_sistema() {
+        // Lo de arriba no puede aflojar la lista para la raíz normal: lo que no
+        // contiene a la casa se sigue aplicando entero.
+        let reglas = reglas_para(Path::new("/home/pato"), &ignoradas());
+
+        assert!(es_ignorada("/proc/1/status", &reglas));
+        assert!(es_ignorada("/run/user/1000/socket", &reglas));
+        assert!(es_ignorada("/home/pato/proyecto/target/x", &reglas));
+        assert!(!es_ignorada("/home/pato/proyectos/dev/main.rs", &reglas));
     }
 
     #[test]

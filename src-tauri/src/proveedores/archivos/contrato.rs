@@ -128,7 +128,7 @@ pub struct Campos {
 /// igual, y la consulta no encuentra nada.
 ///
 /// Acá hace falta entero —y no sólo los tres campos que el proveedor lee—
-/// porque desde la 0.12 este lado **crea** el índice. Un esquema incompleto no
+/// porque desde la 0.13 este lado **crea** el índice. Un esquema incompleto no
 /// daría un error: daría un índice que el gestor de archivos no puede usar.
 pub fn esquema() -> (Schema, Campos) {
     let mut constructor = Schema::builder();

@@ -59,7 +59,7 @@ rusqlite = { version = "0.32" }
 # Para enterarse de que se instaló o se borró una aplicación sin sondear.
 inotify = "0.11"
 
-# El índice de archivos, que desde la 0.12 se escribe acá y no en el gestor de
+# El índice de archivos, que desde la 0.13 se escribe acá y no en el gestor de
 # archivos. **La misma línea que usa él**, y no por comodidad: el formato en
 # disco cambia entre versiones de tantivy, así que la versión es parte del
 # contrato entre los dos programas y subirla de un lado solo deja al otro sin

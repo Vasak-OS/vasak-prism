@@ -2,7 +2,7 @@
 //!
 //! # Quién es el dueño del índice
 //!
-//! Desde la 0.12, este programa. Lo escribía `vasak-file-manager` y sólo cuando
+//! Desde la 0.13, este programa. Lo escribía `vasak-file-manager` y sólo cuando
 //! alguien abría su ventana y lo pedía; el lanzador lo leía de prestado. Eso
 //! resolvía el «qué buscar» y dejaba abierto el «cuándo se actualiza»: un
 //! archivo bajado hace diez minutos no estaba, y nada decía por qué.
