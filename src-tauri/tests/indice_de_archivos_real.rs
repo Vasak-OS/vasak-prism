@@ -69,11 +69,7 @@ fn un_indice_escrito_por_el_gestor_no_se_descarta() {
     copiar(&real, &copia).expect("copiar el índice");
 
     let abierto = escaneo::abrir_para_escribir(&copia).expect("tiene que abrirse");
-    let cuantos_despues = abierto
-        .reader()
-        .expect("lector")
-        .searcher()
-        .num_docs();
+    let cuantos_despues = abierto.reader().expect("lector").searcher().num_docs();
 
     assert_eq!(
         cuantos_despues, cuantos_antes,
@@ -116,7 +112,10 @@ fn lo_que_escribe_el_lanzador_lo_vuelve_a_leer_el_proveedor() {
     // Y el estado, que es lo que el gestor lee para saber si puede confiar en
     // que la ausencia sea ausencia.
     let estado = escaneo::leer_estado(&base).expect("tiene que haber estado");
-    assert_eq!(estado.scan_state.as_deref(), Some(contrato::ESTADO_COMPLETO));
+    assert_eq!(
+        estado.scan_state.as_deref(),
+        Some(contrato::ESTADO_COMPLETO)
+    );
     assert_eq!(estado.indexed_item_count, 1);
 
     let _ = std::fs::remove_dir_all(&base);
