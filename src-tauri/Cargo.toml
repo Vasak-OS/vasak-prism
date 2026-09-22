@@ -1,6 +1,6 @@
 [package]
 name = "vasak-prism"
-version = "0.11.2"
+version = "0.12.0"
 description = "El lanzador de VasakOS: una consulta, todos los resultados"
 authors = ["Vasak Group", "Joaquin (Pato) Decima"]
 edition = "2021"
@@ -24,6 +24,10 @@ dirs = "6"
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# Para traer las cotizaciones, que es lo único de Prism que toca la red. Las
+# mismas features que el resto del taller: sin OpenSSL del sistema, y el cliente
+# bloqueante porque esto corre en un hilo aparte que no espera nadie.
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 
 # Los plugins del escritorio. Los cuatro, no dos: una app de VasakOS tiene que
 # hablar el idioma de la sesión y abrir el menú del sistema con el clic derecho.

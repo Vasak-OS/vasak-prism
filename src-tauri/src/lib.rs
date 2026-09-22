@@ -104,6 +104,11 @@ pub fn run(mostrar_al_arrancar: bool) {
                 ventanas: Mutex::new(proveedores::ventanas::Cache::nueva()),
                 secciones: proveedores::configuracion::del_disco(),
                 idioma: locales::idioma_del_sistema(),
+                // Lee lo que haya en disco y nada más: acá no se toca la red.
+                // El primer pedido lo dispara la primera consulta de moneda.
+                monedas: Arc::new(Mutex::new(proveedores::moneda::Monedas::nuevas(
+                    proveedores::moneda::ruta_por_defecto(),
+                ))),
             });
 
             // La ventana se construye acá, escondida, y no se vuelve a construir
