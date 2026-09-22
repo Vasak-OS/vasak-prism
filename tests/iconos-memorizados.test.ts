@@ -15,13 +15,13 @@
  * iconos siguen apareciendo igual, sólo que costando de más en cada tecla.
  */
 
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { olvidarLosIconosDelTema } from '@vasakgroup/vue-libvasak';
 import { nextTick } from 'vue';
 import ListaDeResultados from '@/componentes/ListaDeResultados.vue';
 import type { Resultado } from '@/servicios/busqueda';
-import { emitir, iconosPedidos, olvidarTodo } from './dobles';
+import { emitir, iconosPedidos, olvidarTodo, ponerEnElTema } from './dobles';
 
 /**
  * Deja pasar las vueltas de microtareas que tarda una resolución.
@@ -155,16 +155,48 @@ describe('los iconos de la lista', () => {
 		expect(iconosPedidos).toHaveLength(0);
 	});
 
-	test('cambiar el tema vuelve a resolver', async () => {
+	test('cambiar el tema vuelve a resolver, pero no en el acto', async () => {
 		// Lo contrario de lo anterior, y por eso va: una memoria que no se vacía
 		// deja la ventana con los iconos del tema viejo hasta reabrirla.
-		montar([resultado('Firefox', 'firefox')]);
-		await asentar();
-		expect(iconosPedidos).toHaveLength(1);
+		//
+		// Desde la 1.3.0 de la librería el pedido nuevo **no** sale enseguida:
+		// la memoria se vacía y la recarga se agenda, para que el aviso del tema
+		// de iconos y el de GTK no disparen dos barridos. Con una lista que se
+		// redibuja en cada tecla eso es la diferencia entre un barrido y dos.
+		// Antes esta prueba esperaba sólo microtareas y por eso contaba dos
+		// pedidos; ahora hay que adelantar el reloj, con temporizadores falsos
+		// para que no dependa de cuán cargada esté la máquina.
+		// Y se mira **el dibujo**, no sólo la cuenta de pedidos: sin dos fuentes
+		// distintas los dos pedidos devuelven lo mismo, así que una lista que se
+		// rompiera al redibujar contaría igual dos y pasaría. Lo marcó la
+		// revisión.
+		jest.useFakeTimers();
+		try {
+			ponerEnElTema('firefox', 'data:image/svg+xml,zorro-claro');
+			const lista = montar([resultado('Firefox', 'firefox')]);
+			await asentar();
+			expect(iconosPedidos).toHaveLength(1);
+			expect(lista.get('img').attributes('src')).toBe('data:image/svg+xml,zorro-claro');
 
-		await emitir('vicons:theme-changed');
-		await asentar();
+			ponerEnElTema('firefox', 'data:image/svg+xml,zorro-oscuro');
+			await emitir('vicons:theme-changed');
+			await asentar();
 
-		expect(iconosPedidos).toHaveLength(2);
+			// Todavía no: la recarga está agendada.
+			expect(iconosPedidos).toHaveLength(1);
+			expect(lista.get('img').attributes('src')).toBe('data:image/svg+xml,zorro-claro');
+
+			// El planificador `await`ea entre tandas, así que se avanza en pasos
+			// con microtareas en el medio.
+			for (let i = 0; i < 8; i++) {
+				jest.advanceTimersByTime(40);
+				await asentar(2);
+			}
+
+			expect(iconosPedidos).toHaveLength(2);
+			expect(lista.get('img').attributes('src')).toBe('data:image/svg+xml,zorro-oscuro');
+		} finally {
+			jest.useRealTimers();
+		}
 	});
 });
