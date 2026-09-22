@@ -21,7 +21,7 @@ import { olvidarLosIconosDelTema } from '@vasakgroup/vue-libvasak';
 import { nextTick } from 'vue';
 import ListaDeResultados from '@/componentes/ListaDeResultados.vue';
 import type { Resultado } from '@/servicios/busqueda';
-import { emitir, iconosPedidos, olvidarTodo } from './dobles';
+import { emitir, iconosPedidos, olvidarTodo, ponerEnElTema } from './dobles';
 
 /**
  * Deja pasar las vueltas de microtareas que tarda una resolución.
@@ -166,17 +166,25 @@ describe('los iconos de la lista', () => {
 		// Antes esta prueba esperaba sólo microtareas y por eso contaba dos
 		// pedidos; ahora hay que adelantar el reloj, con temporizadores falsos
 		// para que no dependa de cuán cargada esté la máquina.
+		// Y se mira **el dibujo**, no sólo la cuenta de pedidos: sin dos fuentes
+		// distintas los dos pedidos devuelven lo mismo, así que una lista que se
+		// rompiera al redibujar contaría igual dos y pasaría. Lo marcó la
+		// revisión.
 		jest.useFakeTimers();
 		try {
-			montar([resultado('Firefox', 'firefox')]);
+			ponerEnElTema('firefox', 'data:image/svg+xml,zorro-claro');
+			const lista = montar([resultado('Firefox', 'firefox')]);
 			await asentar();
 			expect(iconosPedidos).toHaveLength(1);
+			expect(lista.get('img').attributes('src')).toBe('data:image/svg+xml,zorro-claro');
 
+			ponerEnElTema('firefox', 'data:image/svg+xml,zorro-oscuro');
 			await emitir('vicons:theme-changed');
 			await asentar();
 
 			// Todavía no: la recarga está agendada.
 			expect(iconosPedidos).toHaveLength(1);
+			expect(lista.get('img').attributes('src')).toBe('data:image/svg+xml,zorro-claro');
 
 			// El planificador `await`ea entre tandas, así que se avanza en pasos
 			// con microtareas en el medio.
@@ -186,6 +194,7 @@ describe('los iconos de la lista', () => {
 			}
 
 			expect(iconosPedidos).toHaveLength(2);
+			expect(lista.get('img').attributes('src')).toBe('data:image/svg+xml,zorro-oscuro');
 		} finally {
 			jest.useRealTimers();
 		}
