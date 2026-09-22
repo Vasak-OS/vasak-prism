@@ -11,10 +11,18 @@
 //!
 //! # Cuánto cuesta, medido y no estimado
 //!
-//! Sobre una cuenta real: **78.506 entradas, 3,9 segundos y 9,4 MB de índice**,
-//! con menos de 60 MB de pico de memoria. Es barato, y eso es lo que decide el
-//! resto del diseño: no hace falta ser incremental para ser útil, alcanza con
-//! rehacerlo entero cuando está viejo.
+//! Sobre una cuenta real, con este mismo código compilado en release:
+//! **78.500 entradas, 4,1 segundos y 9,3 MB de índice**, con menos de 60 MB de
+//! pico de memoria. Es barato, y eso es lo que decide el resto del diseño: no
+//! hace falta ser incremental para ser útil, alcanza con rehacerlo entero
+//! cuando está viejo.
+//!
+//! **Y si alguien lo vuelve a medir, que sea en release.** El mismo escaneo en
+//! depuración tarda 17,1 segundos —cuatro veces más— porque lo caro es tantivy
+//! comprimiendo, y sin optimizar eso se nota entero. Medirlo con `cargo test`
+//! a secas y sacar conclusiones de ahí llevaría a rediseñar esto por un número
+//! que ninguna instalación va a ver. La medición vive en
+//! `tests/medicion_real.rs` y se corre con `--release`.
 //!
 //! # Cuándo escanea
 //!
