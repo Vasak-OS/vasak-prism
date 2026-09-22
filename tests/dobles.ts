@@ -89,14 +89,28 @@ export async function emitir(nombre: string) {
  */
 export const iconosPedidos: string[] = [];
 
+/**
+ * Lo que el tema contesta para un nombre, cuando la prueba lo dice.
+ *
+ * Sin esto el doble contesta siempre lo mismo y un cambio de tema no se puede
+ * comprobar: la fuente sale igual antes y después, así que la prueba pasaría
+ * con el componente desconectado del tema.
+ */
+const temaDeIconos = new Map<string, string>();
+
+/** Pone —o cambia— lo que el tema devuelve para un nombre. */
+export function ponerEnElTema(nombre: string, fuente: string) {
+	temaDeIconos.set(nombre, fuente);
+}
+
 export async function getIconSource(nombre: string) {
 	iconosPedidos.push(nombre);
-	return `icono:${nombre}`;
+	return temaDeIconos.get(nombre) ?? `icono:${nombre}`;
 }
 
 export async function getSymbolSource(nombre: string) {
 	iconosPedidos.push(nombre);
-	return `simbolo:${nombre}`;
+	return temaDeIconos.get(nombre) ?? `simbolo:${nombre}`;
 }
 
 export function olvidarTodo() {
@@ -106,4 +120,5 @@ export function olvidarTodo() {
 	oyentes.clear();
 	loQueSePidio.length = 0;
 	iconosPedidos.length = 0;
+	temaDeIconos.clear();
 }
