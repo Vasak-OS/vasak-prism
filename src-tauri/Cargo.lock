@@ -5359,6 +5359,7 @@ dependencies = [
  "tauri-plugin-vicons",
  "tauri-plugin-vsk-contextual-menu",
  "tauri-plugin-vsk-journal",
+ "walkdir",
  "zbus",
 ]
 

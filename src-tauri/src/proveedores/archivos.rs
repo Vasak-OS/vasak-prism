@@ -1,26 +1,40 @@
-//! Los archivos, leídos del índice que ya mantiene el gestor de archivos.
+//! Los archivos, del índice que el lanzador escanea y mantiene.
 //!
-//! # Por qué no hay un índice propio
+//! # Quién es el dueño del índice
 //!
-//! `vasak-file-manager` ya recorre el disco y mantiene un índice de tantivy con
-//! los nombres de los archivos. Armar otro acá sería recorrer el mismo disco dos
-//! veces, guardar los mismos nombres dos veces y vigilarlos dos veces — y que
-//! los dos se contradigan cuando uno de los dos se arregle.
+//! Desde la 0.12, este programa. Lo escribía `vasak-file-manager` y sólo cuando
+//! alguien abría su ventana y lo pedía; el lanzador lo leía de prestado. Eso
+//! resolvía el «qué buscar» y dejaba abierto el «cuándo se actualiza»: un
+//! archivo bajado hace diez minutos no estaba, y nada decía por qué.
 //!
-//! Tantivy admite **muchos lectores y un escritor**, y los lectores no necesitan
-//! que el escritor esté vivo. Así que acá se abre el índice de sólo lectura. El
-//! gestor sigue siendo su dueño: lo crea, lo llena y lo actualiza; el lanzador
-//! sólo pregunta.
+//! El escaneo vive acá porque acá está el proceso que vive prendido —unidad de
+//! systemd, `Type=dbus`, con la sesión—, y el gestor es una ventana que se abre
+//! y se cierra. Ver Vasak-OS/vasak-prism#33; el escaneo está en [`escaneo`] y
+//! lo que los dos programas comparten, en [`contrato`].
 //!
-//! Lo que eso cuesta, dicho de frente: el lanzador queda atado a **dónde** está
-//! el índice y a **qué forma** tiene. Si el gestor cambia el esquema, acá dejan
-//! de aparecer archivos. Por eso nada de esto falla ruidosamente —sin índice o
-//! con un índice que no se entiende, no hay filas y el resto del lanzador anda
-//! igual— y por eso los nombres de los campos están en un solo lugar.
+//! **La ruta no cambió.** El índice ya vivía en la caché compartida, que no
+//! cuelga del nombre de ninguna de las dos aplicaciones, así que cambiar de
+//! dueño no movió ni rehizo nada: el índice que hubiera se hereda tal cual.
 //!
-//! Lo que **no** resuelve: la frescura. El índice es tan nuevo como el último
-//! escaneo que alguien haya pedido desde el gestor. Cambiar eso es cambiar de
-//! dueño, y es una decisión aparte.
+//! # Leer y escribir conviven
+//!
+//! Tantivy admite **muchos lectores y un escritor**, y los lectores no
+//! necesitan que el escritor esté vivo. Este archivo es el lector; el de al
+//! lado, el escritor. Mientras haya instalaciones con el gestor sin actualizar,
+//! el escritor puede ser el otro: el bloqueo de tantivy hace que no haya dos a
+//! la vez, y el que llega segundo no hace nada. Por eso el cambio de dueño no
+//! necesita que las dos aplicaciones se actualicen en el mismo instante.
+//!
+//! # Nada de esto falla ruidosamente
+//!
+//! Sin índice, o con uno que no se entiende, no hay filas y el resto del
+//! lanzador anda igual. Es deliberado, y tiene su costo: el día que el esquema
+//! cambie de un lado y no del otro, acá dejan de aparecer archivos **sin ningún
+//! error**. Contra eso está [`contrato`], con una prueba que fija los nombres
+//! de los campos y la ruta de los dos lados.
+
+pub mod contrato;
+pub mod escaneo;
 
 use std::path::{Path, PathBuf};
 
@@ -32,41 +46,25 @@ use tantivy::{Index, IndexReader, TantivyDocument, Term};
 use crate::catalogo::aplicacion::{Origen, Resultado};
 use crate::catalogo::puntaje;
 
-/// Dónde está el índice, en orden de preferencia.
+/// Donde el gestor dejaba el índice antes de que se mudara a la caché
+/// compartida: el `identifier` de su `tauri.conf.json`, que es lo que Tauri usa
+/// para el directorio de datos de cada aplicación.
 ///
-/// # Por qué son varias y no una
+/// # Por qué se sigue mirando
 ///
-/// El índice cambia de dueño: lo escribía el gestor de archivos en **su**
-/// directorio de datos y pasa a estar en la caché compartida, porque es dato
-/// derivado —se rehace recorriendo el disco— y porque `~/.cache/vasak/` ya es
-/// donde vive lo que no es de una sola aplicación.
+/// Porque un paquete no actualiza las dos aplicaciones en el mismo instante.
+/// Mientras haya instalaciones con el gestor viejo —el que escribía acá— ésta
+/// es la única ruta con algo adentro, y mirarla es la diferencia entre una
+/// transición invisible y unos días en que la búsqueda de archivos no encuentra
+/// nada **sin decir por qué**: `abrir()` devuelve `None`, el proveedor no
+/// aporta filas y el lanzador sigue andando perfecto.
 ///
-/// Las dos rutas conviven a propósito. Un paquete no actualiza las dos
-/// aplicaciones en el mismo instante, y acá el que pierde es siempre el mismo:
-/// si el lanzador mira sólo la ruta nueva y el gestor todavía escribe en la
-/// vieja, `abrir()` devuelve `None`, el proveedor no aporta filas y **el
-/// lanzador sigue andando perfecto**. Nadie se entera hasta que alguien busca
-/// un archivo y no aparece. Probar las dos hace que no haya día de corte.
-///
-/// La vieja se saca cuando ya no le sirva a nadie; hasta entonces es la
-/// diferencia entre una transición invisible y una ventana de días en que la
-/// búsqueda de archivos no encuentra nada sin decirlo.
-///
-/// La versión va en la ruta para que subirla descarte lo viejo solo. Al lado,
-/// fuera del directorio de la versión, el gestor deja un `status.json` con el
-/// número de esquema y la fecha del último escaneo: es lo que va a permitir
-/// distinguir «todavía no hay índice» de «hay uno y es de otra versión», que
-/// desde acá se ven igual. Leerlo es el paso siguiente y no está hecho.
-const EN_LA_CACHE: &str = "vasak/global-search/v1/index";
-
-/// Donde lo dejaba el gestor: el `identifier` de su `tauri.conf.json`, que es
-/// lo que Tauri usa para el directorio de datos de cada aplicación.
+/// Se saca cuando ya no le sirva a nadie.
 const EN_LOS_DATOS: &str = "ar.net.vasak.vasak-file-manager/global-search/index";
 
-/// Los campos que hacen falta acá, con el nombre que les puso el gestor.
-const CAMPO_RUTA: &str = "path";
-const CAMPO_NOMBRE: &str = "name";
-const CAMPO_ES_DIRECTORIO: &str = "is_dir";
+/// Los campos que hacen falta acá. Los nombres salen del contrato y no de una
+/// constante propia: son lo que los dos programas comparten.
+use contrato::{CAMPO_ES_DIRECTORIO, CAMPO_NOMBRE, CAMPO_RUTA};
 
 /// Cuánto vale un archivo frente a una aplicación.
 ///
@@ -85,42 +83,6 @@ const DEL_INDICE: usize = 60;
 const ICONO_ARCHIVO: &str = "text-x-generic";
 const ICONO_DIRECTORIO: &str = "folder";
 
-/// La base de un directorio del estándar, con su respaldo.
-fn base(variable: &str, respaldo: &str) -> Option<PathBuf> {
-    base_desde(
-        std::env::var_os(variable).as_deref(),
-        std::env::var_os("HOME").as_deref(),
-        respaldo,
-    )
-}
-
-/// Absoluta o nada.
-///
-/// El estándar pide que estas variables sean absolutas y que una relativa se
-/// **ignore**, y acá además importa por lo que pasaría si no: una base relativa
-/// haría que el índice se buscara respecto del directorio de trabajo, que en un
-/// daemon lanzado por systemd no es el home de nadie. La búsqueda de archivos
-/// dependería de desde dónde arrancó el proceso.
-///
-/// Una regla y no dos: la variable vacía es un caso de la misma, porque la
-/// cadena vacía tampoco es absoluta. Antes estaba tratada aparte y la relativa
-/// se colaba, que es el mismo agujero con otra forma.
-///
-/// Ignorar no es fallar: una `XDG_CACHE_HOME` relativa cae al respaldo, como si
-/// no estuviera. Sin `HOME` absoluto no queda de dónde, y ahí sí es `None`.
-fn base_desde(
-    valor: Option<&std::ffi::OsStr>,
-    home: Option<&std::ffi::OsStr>,
-    respaldo: &str,
-) -> Option<PathBuf> {
-    if let Some(suya) = valor.map(Path::new).filter(|ruta| ruta.is_absolute()) {
-        return Some(suya.to_path_buf());
-    }
-
-    let home = Path::new(home?);
-    home.is_absolute().then(|| home.join(respaldo))
-}
-
 /// Las rutas donde puede estar el índice, en el orden en que hay que probarlas.
 ///
 /// Primero la nueva: durante la transición pueden existir las dos, y la vieja
@@ -129,8 +91,8 @@ fn base_desde(
 /// respaldo.
 pub fn rutas_del_indice() -> Vec<PathBuf> {
     rutas_desde(
-        base("XDG_CACHE_HOME", ".cache").as_deref(),
-        base("XDG_DATA_HOME", ".local/share").as_deref(),
+        contrato::base_de_cache().as_deref(),
+        crate::rutas::base(dirs::data_dir()).as_deref(),
     )
 }
 
@@ -138,11 +100,11 @@ pub fn rutas_del_indice() -> Vec<PathBuf> {
 ///
 /// Aparte para poder probarlo: el entorno es global al proceso y las pruebas
 /// corren en paralelo, así que una que lo toque decide el resultado de otra.
-fn rutas_desde(cache: Option<&Path>, datos: Option<&Path>) -> Vec<PathBuf> {
+fn rutas_desde(compartida: Option<&Path>, datos: Option<&Path>) -> Vec<PathBuf> {
     let mut rutas = Vec::new();
 
-    if let Some(cache) = cache {
-        rutas.push(cache.join(EN_LA_CACHE));
+    if let Some(compartida) = compartida {
+        rutas.push(contrato::directorio_del_indice(compartida));
     }
 
     if let Some(datos) = datos {
@@ -437,7 +399,7 @@ mod tests {
         // el orden se diera vuelta, una instalación con las dos serviría la
         // vieja —congelada el día que el gestor dejó de escribirla— teniendo al
         // lado una al día.
-        let rutas = rutas_desde(Some(Path::new("/c")), Some(Path::new("/d")));
+        let rutas = rutas_desde(Some(Path::new("/c/vasak")), Some(Path::new("/d")));
 
         assert_eq!(
             rutas,
@@ -453,7 +415,7 @@ mod tests {
         // Clavada a propósito: es un contrato entre dos aplicaciones que se
         // actualizan por separado, y del lado de allá hay una prueba igual. Si
         // alguien la cambia de un solo lado, que falle acá y no en silencio.
-        let rutas = rutas_desde(Some(Path::new("/c")), None);
+        let rutas = rutas_desde(Some(Path::new("/c/vasak")), None);
         assert_eq!(
             rutas,
             vec![PathBuf::from("/c/vasak/global-search/v1/index")]
@@ -507,50 +469,6 @@ mod tests {
 
         assert!(Indice::del_primero(&[ni.join("a"), ni.join("b")]).is_none());
         assert!(Indice::del_primero(&[]).is_none());
-    }
-
-    #[test]
-    fn una_base_relativa_se_ignora() {
-        // El estándar pide ignorarla, y acá además importa por lo que pasaría:
-        // el índice se buscaría respecto del directorio de trabajo, que en un
-        // daemon lanzado por systemd no es el home de nadie.
-        let home = Some(std::ffi::OsStr::new("/home/pato"));
-
-        for relativa in ["relativa", "./relativa", "", "../arriba"] {
-            assert_eq!(
-                base_desde(Some(std::ffi::OsStr::new(relativa)), home, ".cache"),
-                Some(PathBuf::from("/home/pato/.cache")),
-                "«{relativa}» tendría que caer al respaldo"
-            );
-        }
-    }
-
-    #[test]
-    fn una_base_absoluta_se_usa_tal_cual() {
-        assert_eq!(
-            base_desde(
-                Some(std::ffi::OsStr::new("/tmp/cache")),
-                Some(std::ffi::OsStr::new("/home/pato")),
-                ".cache"
-            ),
-            Some(PathBuf::from("/tmp/cache"))
-        );
-    }
-
-    #[test]
-    fn sin_un_home_absoluto_no_hay_base() {
-        // Devolver algo relativo sería peor que no devolver nada: `abrir()`
-        // probaría una ruta que depende de dónde arrancó el proceso, y podría
-        // hasta encontrar algo que no es el índice.
-        assert_eq!(base_desde(None, None, ".cache"), None);
-        assert_eq!(
-            base_desde(None, Some(std::ffi::OsStr::new("casa")), ".cache"),
-            None
-        );
-        assert_eq!(
-            base_desde(None, Some(std::ffi::OsStr::new("")), ".cache"),
-            None
-        );
     }
 
     #[test]

@@ -43,6 +43,12 @@ pub struct Estado {
     /// el candado tomado durante la búsqueda, escribir rápido hace que cada
     /// tecla espere a la anterior.
     pub archivos: Mutex<Option<Arc<crate::proveedores::archivos::Indice>>>,
+    /// Quién mantiene ese índice al día, que desde la 0.12 es este programa.
+    ///
+    /// No lleva candado: adentro ya tiene el suyo para no arrancar dos escaneos
+    /// a la vez, y ponerle uno acá haría que decidir si conviene escanear
+    /// —leer un archivo chico— se serializara contra el resto del estado.
+    pub escaneos: crate::proveedores::archivos::escaneo::Escaneos,
     /// Las ventanas abiertas, preguntadas al escritorio cada tanto.
     pub ventanas: Mutex<crate::proveedores::ventanas::Cache>,
     /// Las secciones de la configuración, leídas una vez al arrancar.

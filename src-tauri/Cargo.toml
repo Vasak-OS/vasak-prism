@@ -59,11 +59,17 @@ rusqlite = { version = "0.32" }
 # Para enterarse de que se instaló o se borró una aplicación sin sondear.
 inotify = "0.11"
 
-# Para **leer** el índice de archivos que mantiene el gestor de archivos. La
-# misma línea que usa él, que es lo que hace que los dos entiendan el mismo
-# formato en disco. Acá sólo se lee: tantivy admite muchos lectores y un
-# escritor, y el escritor es el gestor.
+# El índice de archivos, que desde la 0.12 se escribe acá y no en el gestor de
+# archivos. **La misma línea que usa él**, y no por comodidad: el formato en
+# disco cambia entre versiones de tantivy, así que la versión es parte del
+# contrato entre los dos programas y subirla de un lado solo deja al otro sin
+# poder abrir el índice. Hoy la última publicada es la 0.26; subir es una tanda
+# coordinada con `vasak-file-manager`, no una actualización de rutina.
 tantivy = "0.22"
+
+# Para recorrer el disco al armar el índice. La misma que usaba el gestor, que
+# es de donde se mudó el escaneo.
+walkdir = "2.5"
 tauri-plugin-vsk-journal = "2"
 
 [features]
