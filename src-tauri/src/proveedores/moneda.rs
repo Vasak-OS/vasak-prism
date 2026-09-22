@@ -109,9 +109,11 @@ impl Cotizaciones {
     pub fn convertir(&self, cantidad: f64, origen: &str, destino: &str) -> Option<f64> {
         let de = self.por_dolar.get(origen)?;
         let a = self.por_dolar.get(destino)?;
-        // Una tasa en cero llegaría a dividir por cero y dar infinito, que se
-        // mostraría como una conversión perfectamente normal.
-        (*de != 0.0 && de.is_finite() && a.is_finite())
+        // Una tasa en cero llegaría a dividir por cero y dar infinito, y una
+        // negativa daría un importe negativo: las dos se mostrarían como una
+        // conversión perfectamente normal. Por eso se exige que las dos sean
+        // finitas y mayores que cero, y no sólo que no rompan la división.
+        (de.is_finite() && a.is_finite() && *de > 0.0 && *a > 0.0)
             .then(|| cantidad / de * a)
             .filter(|valor| valor.is_finite())
     }
@@ -303,12 +305,27 @@ pub fn del_disco(ruta: &std::path::Path) -> Option<Cotizaciones> {
 }
 
 /// Guarda lo traído, creando el directorio si hace falta.
+///
+/// Se escribe en un archivo al lado y recién entonces se renombra encima. Un
+/// `write` directo trunca primero: si se corta ahí —disco lleno, apagón— lo
+/// guardado queda a medias, y como lo roto se trata igual que lo ausente, la
+/// cotización vieja se pierde. Justo la que hace falta cuando no hay red, que
+/// es para lo que esto se guarda. El renombrado dentro del mismo directorio es
+/// atómico, así que el archivo bueno se reemplaza por otro bueno o por ninguno.
 pub fn al_disco(ruta: &std::path::Path, tabla: &Cotizaciones) -> Result<(), String> {
     if let Some(padre) = ruta.parent() {
         std::fs::create_dir_all(padre).map_err(|e| e.to_string())?;
     }
     let texto = serde_json::to_string(tabla).map_err(|e| e.to_string())?;
-    std::fs::write(ruta, texto).map_err(|e| e.to_string())
+
+    // Al lado del definitivo y no en /tmp: renombrar entre sistemas de
+    // archivos distintos falla, y ahí no habría atomicidad ninguna.
+    let provisorio = ruta.with_extension("json.nuevo");
+    std::fs::write(&provisorio, texto).map_err(|e| e.to_string())?;
+    std::fs::rename(&provisorio, ruta).map_err(|e| {
+        let _ = std::fs::remove_file(&provisorio);
+        e.to_string()
+    })
 }
 
 /// Lo que contesta la fuente, que no es la forma en que se guarda.
@@ -451,20 +468,29 @@ impl Monedas {
         self.ultimo_intento = Some(ahora);
     }
 
-    /// Guarda lo traído, en memoria y en disco.
+    /// Guarda lo traído en memoria y devuelve qué escribir en el disco.
     ///
-    /// Que no se pueda escribir no es motivo para no usarlas: se pierden al
-    /// cerrar la sesión, nada más.
-    pub fn guardar(&mut self, mut tabla: Cotizaciones, ahora: std::time::SystemTime) {
+    /// No escribe: quien llama tiene el candado tomado y escribir con el
+    /// candado deja esperando al disco a cada búsqueda de ese rato. Devuelve la
+    /// ruta y la tabla para que la escritura pase afuera, que es el mismo
+    /// motivo por el que el pedido a la red tampoco se hace acá.
+    ///
+    /// Que después no se pueda escribir no es motivo para no usarlas: quedan en
+    /// memoria y se pierden al cerrar la sesión, nada más.
+    #[must_use = "lo devuelto es lo que falta escribir en el disco"]
+    pub fn guardar(
+        &mut self,
+        mut tabla: Cotizaciones,
+        ahora: std::time::SystemTime,
+    ) -> Option<(PathBuf, Cotizaciones)> {
         tabla.traido_en = ahora
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0);
 
-        if let Some(ruta) = &self.ruta {
-            let _ = al_disco(ruta, &tabla);
-        }
+        let pendiente = self.ruta.clone().map(|ruta| (ruta, tabla.clone()));
         self.tabla = Some(tabla);
+        pendiente
     }
 }
 
@@ -490,8 +516,16 @@ pub fn refrescar_en_otro_hilo(monedas: std::sync::Arc<std::sync::Mutex<Monedas>>
             return;
         };
 
-        let mut guardadas = monedas.lock().unwrap_or_else(|e| e.into_inner());
-        guardadas.guardar(tabla, std::time::SystemTime::now());
+        let pendiente = {
+            let mut guardadas = monedas.lock().unwrap_or_else(|e| e.into_inner());
+            guardadas.guardar(tabla, std::time::SystemTime::now())
+        };
+
+        // Fuera del candado, por lo mismo que el pedido: el disco puede tardar,
+        // y las búsquedas de ese rato ya pueden usar lo que está en memoria.
+        if let Some((ruta, tabla)) = pendiente {
+            let _ = al_disco(&ruta, &tabla);
+        }
     });
 }
 
@@ -595,6 +629,26 @@ mod tests {
     }
 
     #[test]
+    fn una_tasa_que_no_sea_positiva_no_convierte() {
+        // El cero de destino da cero y el negativo da un importe negativo: los
+        // dos se verían como una conversión normal, que es lo peor que puede
+        // pasar acá. Se rechaza igual de qué lado esté.
+        let rota = |codigo: &str, tasa: f64| Cotizaciones {
+            fecha: "2026-09-21".to_string(),
+            por_dolar: HashMap::from([(codigo.to_string(), tasa), ("usd".to_string(), 1.0)]),
+            traido_en: 0,
+        };
+
+        assert_eq!(
+            convertir("100 usd a aaa", &rota("aaa", 0.0)),
+            None,
+            "una tasa de destino en cero daría 0 y parecería una conversión"
+        );
+        assert_eq!(convertir("100 usd a aaa", &rota("aaa", -2.0)), None);
+        assert_eq!(convertir("100 aaa a usd", &rota("aaa", -2.0)), None);
+    }
+
+    #[test]
     fn la_fila_copia_el_numero_y_muestra_la_fecha() {
         let fila = resolver("100 usd a eur", &tabla()).expect("es una conversión");
         assert_eq!(fila.titulo, "87 EUR");
@@ -649,6 +703,66 @@ mod tests {
         let _ = std::fs::remove_file(&ruta);
     }
 
+    #[test]
+    fn si_no_se_puede_escribir_queda_lo_de_antes() {
+        // Lo importante no es que falle, es qué queda cuando falla: escribir
+        // encima trunca primero, y lo roto se trata igual que lo ausente. Se
+        // perdería la cotización vieja justo cuando no hay red para rehacerla.
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = std::env::temp_dir().join(format!(
+            "prism-cotiz-ro-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let ruta = dir.join("cotizaciones.json");
+
+        al_disco(&ruta, &tabla()).expect("la primera vez se guarda");
+
+        let mut otra = tabla();
+        otra.fecha = "2026-09-22".to_string();
+
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o555)).unwrap();
+        let resultado = al_disco(&ruta, &otra);
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        assert!(resultado.is_err(), "no se podía escribir");
+        assert_eq!(
+            del_disco(&ruta),
+            Some(tabla()),
+            "la cotización anterior tiene que seguir entera"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn guardar_no_toca_el_disco_y_dice_que_escribir() {
+        // Se llama con el candado tomado: escribir ahí deja cada búsqueda de
+        // ese rato esperando al disco. Devuelve qué escribir para que pase
+        // afuera.
+        let dir = std::env::temp_dir().join(format!(
+            "prism-cotiz-cand-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        let ruta = dir.join("cotizaciones.json");
+
+        let mut m = Monedas::nuevas(Some(ruta.clone()));
+        let pendiente = m.guardar(tabla(), en(1_000_000));
+
+        assert!(!ruta.exists(), "guardar no escribe");
+        let (donde, que) = pendiente.expect("hay algo que escribir");
+        assert_eq!(donde, ruta);
+        assert_eq!(que.traido_en, 1_000_000, "lo devuelto ya lleva la marca");
+        assert_eq!(m.tabla().map(|t| t.traido_en), Some(1_000_000));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     fn en(segundos: u64) -> std::time::SystemTime {
         std::time::UNIX_EPOCH + std::time::Duration::from_secs(segundos)
     }
@@ -662,7 +776,7 @@ mod tests {
     #[test]
     fn con_algo_reciente_no_se_vuelve_a_pedir() {
         let mut m = Monedas::nuevas(None);
-        m.guardar(tabla(), en(1_000_000));
+        let _ = m.guardar(tabla(), en(1_000_000));
         // Una hora después sigue valiendo.
         assert!(!m.conviene_intentar(en(1_000_000 + 3600)));
     }
@@ -670,7 +784,7 @@ mod tests {
     #[test]
     fn pasada_la_vigencia_se_vuelve_a_pedir() {
         let mut m = Monedas::nuevas(None);
-        m.guardar(tabla(), en(1_000_000));
+        let _ = m.guardar(tabla(), en(1_000_000));
         assert!(m.conviene_intentar(en(1_000_000 + 21 * 3600)));
     }
 
@@ -690,7 +804,7 @@ mod tests {
         // El reloj corregido hacia atrás dejaría lo guardado como si acabara de
         // traerse, y no se volvería a pedir nunca.
         let mut m = Monedas::nuevas(None);
-        m.guardar(tabla(), en(2_000_000));
+        let _ = m.guardar(tabla(), en(2_000_000));
         assert!(m.conviene_intentar(en(1_000_000)));
     }
 
