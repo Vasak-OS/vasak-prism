@@ -18,6 +18,7 @@ lanzador:
   escribi: Escribí para buscar
   prefijos: "f archivos · w ventanas · a aplicaciones · > comando · ? web · : emoji"
   copiar: Enter copia el resultado
+  cotizacionDel: "Cotización del {0}"
   buscarEn: "Buscar en {0}"
   ejecutar: Enter ejecuta el comando
   enLaConfiguracion: En la configuración

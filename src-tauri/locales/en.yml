@@ -9,6 +9,7 @@ lanzador:
   escribi: Type to search
   prefijos: "f files · w windows · a apps · > command · ? web · : emoji"
   copiar: Enter copies the result
+  cotizacionDel: "Rate from {0}"
   buscarEn: "Search on {0}"
   ejecutar: Enter runs the command
   enLaConfiguracion: In settings

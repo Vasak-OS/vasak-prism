@@ -45,6 +45,7 @@ pub mod calculo;
 pub mod configuracion;
 pub mod emoji;
 pub mod expresion;
+pub mod moneda;
 pub mod recientes;
 pub mod shell;
 pub mod unidades;

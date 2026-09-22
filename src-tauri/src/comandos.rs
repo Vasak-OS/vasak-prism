@@ -57,6 +57,14 @@ pub struct Estado {
     /// archivo del escritorio cambia; el candado es porque Tauri atiende cada
     /// comando en su propio hilo.
     pub recientes: Mutex<crate::proveedores::recientes::Cache>,
+    /// Las cotizaciones, si alguna vez se trajeron.
+    ///
+    /// Bajo candado y no en `Arc` suelto porque se escriben: el hilo que las
+    /// trae las deja acá. El candado se toma para copiar la tabla y se suelta
+    /// enseguida — convertir no es instantáneo y Tauri atiende cada comando en
+    /// su hilo, así que con el candado tomado escribir rápido haría que cada
+    /// tecla espere a la anterior.
+    pub monedas: Arc<Mutex<crate::proveedores::moneda::Monedas>>,
 }
 
 /// Esconde la ventana.
@@ -99,6 +107,41 @@ pub fn buscar(
         .is_none()
         .then(|| crate::proveedores::calculo::resolver(&consulta))
         .flatten();
+
+    // Y si no era una cuenta, puede ser una conversión de moneda. Va después
+    // porque «2 usd a eur» no parsea como cuenta y no hay que probar las dos.
+    //
+    // Acá está lo único de Prism que necesita la red, y por eso el orden
+    // importa: **primero se contesta con lo que hay** y sólo después se decide
+    // si conviene ir a buscar más, en otro hilo. Escribir nunca espera una
+    // conexión.
+    let calculo = calculo.or_else(|| {
+        if acotado.is_some() || !crate::proveedores::moneda::parece_conversion(&consulta) {
+            return None;
+        }
+
+        let (fila, hay_que_pedir) = {
+            let mut monedas = estado.monedas.lock().unwrap_or_else(|e| e.into_inner());
+            let fila = monedas
+                .tabla()
+                .and_then(|tabla| crate::proveedores::moneda::resolver(&consulta, tabla));
+
+            let ahora = std::time::SystemTime::now();
+            let pedir = monedas.conviene_intentar(ahora);
+            if pedir {
+                // Se anota **antes** de soltar el candado: si no, dos teclas
+                // seguidas pasarían las dos por acá y saldrían dos pedidos.
+                monedas.anotar_intento(ahora);
+            }
+            (fila, pedir)
+        };
+
+        if hay_que_pedir {
+            crate::proveedores::moneda::refrescar_en_otro_hilo(Arc::clone(&estado.monedas));
+        }
+
+        fila
+    });
 
     let pesos = estado
         .uso
