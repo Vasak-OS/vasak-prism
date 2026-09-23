@@ -169,7 +169,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="flex h-screen w-screen items-start justify-center p-6">
     <div
-      class="flex max-h-[70vh] w-full max-w-[640px] flex-col overflow-hidden rounded-window border border-ui-border bg-ui-bg/90 shadow-xl">
+      class="flex max-h-[70vh] w-full max-w-[640px] flex-col overflow-hidden rounded-corner-window border border-ui-border bg-ui-bg/90 shadow-xl">
       <div class="flex items-center gap-3 border-b border-ui-border px-4 py-3">
         <input
           ref="campo"
