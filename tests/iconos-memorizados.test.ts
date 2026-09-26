@@ -143,7 +143,7 @@ describe('los iconos de la lista', () => {
 
 		montar(lista);
 		await asentar();
-		expect(iconosPedidos.length).toBe(primeraVez);
+		expect(iconosPedidos).toHaveLength(primeraVez);
 	});
 
 	test('una fila sin icono no pide nada', async () => {

@@ -44,7 +44,7 @@ describe('el marco', () => {
 		// Con dos, el borde y el fondo se dibujan dos veces y se ven los dos.
 		const ventana = abrir();
 
-		expect(ventana.findAll('.rounded-corner-window').length).toBe(1);
+		expect(ventana.findAll('.rounded-corner-window')).toHaveLength(1);
 	});
 
 	test('lleva los tres botones, con su nombre traducido', () => {
