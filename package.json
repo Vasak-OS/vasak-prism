@@ -1,7 +1,7 @@
 {
   "name": "vasak-prism",
   "private": true,
-  "version": "0.14.3",
+  "version": "0.14.4",
   "type": "module",
   "scripts": {
     "dev": "bunx --bun vite",
@@ -15,8 +15,8 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
-    "@tauri-apps/api": "^2.11.1",
-    "@tauri-apps/plugin-shell": "^2.3.6",
+    "@tauri-apps/api": "^2.12.0",
+    "@tauri-apps/plugin-shell": "^2.4.0",
     "@vasakgroup/plugin-config-manager": "~2.6.1",
     "@vasakgroup/plugin-vicons": "^2.2.1",
     "@vasakgroup/plugin-vsk-contextual-menu": "^2.0.2",
@@ -29,9 +29,9 @@
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
     "@happy-dom/global-registrator": "^20.14.5",
-    "@tauri-apps/cli": "^2.11.5",
+    "@tauri-apps/cli": "^2.12.0",
     "@types/bun": "^1.4.2",
-    "@types/node": "^25.9.8",
+    "@types/node": "^26.6.3",
     "@vitejs/plugin-vue": "^6.0.9",
     "@vue/test-utils": "^2.5.1",
     "happy-dom": "^20.14.5",
@@ -42,7 +42,14 @@
   },
   "vasak": {
     "bibliotecasAtrasadas": {
-      "@vasakgroup/plugin-config-manager": "La 2.7.0 declara pinia ^4 y esta aplicación está en pinia 3: subir el rango arrastra un salto mayor ajeno. Por eso el rango es ~2.6.1 y no ^2.6.1, que alcanzaría una versión que no se puede instalar. Se saca al subir a pinia 4."
+      "@vasakgroup/plugin-config-manager": "La 2.7.0 declara pinia ^4 y esta aplicación está en pinia 3: subir el rango arrastra un salto mayor ajeno. Por eso el rango es ~2.6.1 y no ^2.6.1, que alcanzaría una versión que no se puede instalar. Se saca al subir a pinia 4.",
+      "pinia": "La 4 es un salto mayor de una biblioteca que usa el taller entero: catorce aplicaciones están en pinia 3 y subir sólo ésta parte el vocabulario compartido. Va en su propio PR, coordinado con el resto, junto con plugin-config-manager 2.7.",
+      "typescript": "La 7 (el compilador reescrito) no trae `typescript/lib/tsc` y vue-tsc 3.3 lo busca ahí: `bun run build` se cae antes de mirar un archivo. Se saca cuando vue-tsc publique una versión que soporte TypeScript 7.",
+      "vite": "La 8 cambia rollup por rolldown: es cambiar cómo se empaqueta la ventana y eso no lo verifica ninguna prueba. Va en su propio PR, que abra el lanzador en una sesión con `--features custom-protocol`. Se saca con ese PR.",
+      "zbus (crate de Rust)": "La 5 cambia la API de proxies, interfaces y conexiones, y acá zbus es el servicio por el que el atajo del teclado le habla al daemon: migrarlo es un trabajo con su propia verificación en sesión, no una subida de rutina. Se saca con ese PR.",
+      "reqwest (crate de Rust)": "Se queda en 0.12, la misma que usa el servicio vasak-accounts y el resto del taller, para no llevar dos árboles de HTTP a la ISO. Se saca cuando vasak-accounts suba a 0.13.",
+      "tantivy (crate de Rust)": "El formato del índice en disco cambia entre versiones y vasak-file-manager lee el mismo índice (ver el comentario en Cargo.toml): subir de un lado solo deja al otro sin poder abrirlo. Se saca con una tanda coordinada con vasak-file-manager.",
+      "gtk / gdk / glib (crates de Rust)": "Van atados a la 0.18 que usan tauri y webkit2gtk: una versión distinta metería una segunda copia de los enlaces a GTK. Se sacan cuando tauri suba de gtk-rs."
     }
   }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "vasak-prism"
-version = "0.14.3"
+version = "0.14.4"
 description = "El lanzador de VasakOS: una consulta, todos los resultados"
 authors = ["Vasak Group", "Joaquin (Pato) Decima"]
 edition = "2021"
@@ -20,7 +20,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 # Los directorios base del estándar: la regla de que una variable relativa o
 # vacía se ignora vive ahí y no en una copia por módulo.
-dirs = "6"
+dirs = "7"
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -51,10 +51,12 @@ gtk-layer-shell = { version = "0.8", features = ["v0_6"] }
 # nombre del bus que hace de instancia única.
 zbus = { version = "4", default-features = false, features = ["async-io"] }
 
-# La caché del índice de aplicaciones. La misma línea que usan la galería, el
-# reproductor y el daemon de notificaciones, así que el paquete ya depende de
-# `sqlite` del sistema y no se agrega nada nuevo a la imagen.
-rusqlite = { version = "0.32" }
+# La caché del índice de aplicaciones. Enlaza el `sqlite` del sistema —sin la
+# feature `bundled`—, igual que la galería, el reproductor y el daemon de
+# notificaciones, así que no se agrega nada nuevo a la imagen. La versión del
+# crate no tiene que coincidir con la de ellos: cada programa lleva la suya y
+# la base en disco es la de SQLite, no la del envoltorio.
+rusqlite = { version = "0.40" }
 
 # Para enterarse de que se instaló o se borró una aplicación sin sondear.
 inotify = "0.11"
