@@ -54,6 +54,21 @@ const rows = computed(() =>
 
 const visible = computed(() => props.results.slice(rows.value.primera, rows.value.fin));
 
+/**
+ * La elegida cuando quedó fuera de la ventana dibujada.
+ *
+ * Desplazar con la rueda mueve la lista pero no la elección, y sin esto la fila
+ * elegida salía del DOM: el campo seguía anunciándola en
+ * `aria-activedescendant` y apuntaba a un `id` que no existía. Se dibuja aparte,
+ * en su lugar de la lista, y el resto sigue virtualizado.
+ */
+const detached = computed(() => {
+	const index = props.selected;
+	if (index < 0 || index >= props.results.length) return null;
+	if (index >= rows.value.primera && index < rows.value.fin) return null;
+	return index;
+});
+
 function onScroll() {
 	scrollTop.value = box.value?.scrollTop ?? 0;
 }
@@ -118,6 +133,18 @@ watch(
           :selected="rows.primera + position === selected"
           @choose="emit('choose', rows.primera + position)"
           @point="emit('point', rows.primera + position)" />
+      </div>
+      <div
+        v-if="detached !== null"
+        class="absolute inset-x-0 flex flex-col"
+        :style="{ top: `${detached * RESULT_ROW_HEIGHT}px` }">
+        <ResultRow
+          :id="resultOptionId(detached)"
+          :result="results[detached] as Resultado"
+          :height="RESULT_ROW_HEIGHT"
+          selected
+          @choose="emit('choose', detached)"
+          @point="emit('point', detached)" />
       </div>
     </div>
   </div>

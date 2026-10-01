@@ -140,3 +140,43 @@ describe('la fila como opción de la lista', () => {
 		expect(event.defaultPrevented).toBe(true);
 	});
 });
+
+describe('la elegida no se pierde al desplazar con la rueda', () => {
+	let original: PropertyDescriptor | undefined;
+
+	afterEach(() => {
+		if (original) Object.defineProperty(HTMLElement.prototype, 'clientHeight', original);
+		original = undefined;
+	});
+
+	test('sigue en el DOM, en su lugar, para que el campo la pueda anunciar', async () => {
+		// Ocho filas a la vista: happy-dom no maqueta y sin esto la ventana sale
+		// de un alto cero.
+		original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight');
+		Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+			configurable: true,
+			get: () => 8 * RESULT_ROW_HEIGHT,
+		});
+		const results = Array.from({ length: 50 }, (_, i) => result(`app-${i}`));
+		mounted = mount(ResultList, { props: { results, selected: 0 } });
+		await nextTick();
+
+		const box = mounted.get('[role="listbox"]');
+		(box.element as HTMLElement).scrollTop = 30 * RESULT_ROW_HEIGHT;
+		await box.trigger('scroll');
+
+		const chosen = mounted.find(`#${resultOptionId(0)}`);
+		expect(chosen.exists()).toBe(true);
+		expect(chosen.attributes('aria-selected')).toBe('true');
+		expect((chosen.element.parentElement?.parentElement as HTMLElement).style.top).toBe('0px');
+		// Y una sola vez: el resto de la ventana no la repite.
+		expect(mounted.findAll('[aria-selected="true"]')).toHaveLength(1);
+	});
+
+	test('dentro de la ventana no se dibuja dos veces', async () => {
+		mounted = mount(ResultList, { props: { results: [result('Uno'), result('Dos')], selected: 1 } });
+		await nextTick();
+
+		expect(mounted.findAll(`#${resultOptionId(1)}`)).toHaveLength(1);
+	});
+});
