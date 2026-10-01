@@ -10,17 +10,17 @@
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useConfigStore } from '@vasakgroup/plugin-config-manager';
 import { onMounted, onUnmounted, type Ref, ref } from 'vue';
-import Lanzador from '@/vistas/Lanzador.vue';
+import Launcher from '@/views/Launcher.vue';
 
-const soltarLaConfiguracion: Ref<UnlistenFn | null> = ref(null);
+const stopConfigListener: Ref<UnlistenFn | null> = ref(null);
 
 onMounted(async () => {
 	try {
-		const configuracion = useConfigStore();
-		await configuracion.loadConfig();
+		const config = useConfigStore();
+		await config.loadConfig();
 
-		soltarLaConfiguracion.value = await listen('config-changed', async () => {
-			await configuracion.loadConfig();
+		stopConfigListener.value = await listen('config-changed', async () => {
+			await config.loadConfig();
 		});
 	} catch (error) {
 		console.error('Error al cargar configuración en App.vue', error);
@@ -28,10 +28,10 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-	soltarLaConfiguracion.value?.();
+	stopConfigListener.value?.();
 });
 </script>
 
 <template>
-  <Lanzador />
+  <Launcher />
 </template>
