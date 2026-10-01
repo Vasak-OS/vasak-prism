@@ -19,7 +19,7 @@ import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import { olvidarLosIconosDelTema } from '@vasakgroup/vue-libvasak';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { nextTick } from 'vue';
-import FilaDeResultado from '@/componentes/FilaDeResultado.vue';
+import ResultRow from '@/components/ResultRow.vue';
 import type { Resultado } from '@/servicios/busqueda';
 import { emitir, olvidarTodo, ponerEnElTema } from './dobles';
 
@@ -69,8 +69,8 @@ const RESULTADO: Resultado = {
 let mounted: VueWrapper | null = null;
 
 function mountRow() {
-	mounted = mount(FilaDeResultado, {
-		props: { resultado: RESULTADO, elegida: false, alto: 56 },
+	mounted = mount(ResultRow, {
+		props: { result: RESULTADO, selected: false, height: 56, id: 'row-0' },
 	});
 	return mounted;
 }
