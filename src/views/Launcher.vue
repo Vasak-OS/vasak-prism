@@ -169,11 +169,13 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="flex h-screen w-screen items-start justify-center p-6">
-    <!-- La superficie de lo que flota: opaca, con el canto fino y la sombra de
-         Once UI. Era `bg-ui-bg/90`, pero una superficie de capa no ve el
-         escritorio, así que la transparencia no mostraba nada. -->
+    <!-- La superficie del escritorio: `ui-shell`, el fondo de la ventana al
+         85 % y sin `backdrop-blur`, con el canto fino y la sombra de Once UI.
+         El desenfoque de lo de atrás lo pone Wayfire, y sólo se ve si la
+         superficie deja pasar algo: en `ui-float`, opaca, lo tapaba
+         (vue-libvasak `docs/once-ui.md` §13). -->
     <div
-      class="flex max-h-[70vh] w-full max-w-[640px] flex-col overflow-hidden rounded-corner-window border border-ui-line bg-ui-float shadow-surface-l">
+      class="flex max-h-[70vh] w-full max-w-[640px] flex-col overflow-hidden rounded-corner-window border border-ui-line bg-ui-shell shadow-surface-l">
       <!-- `py-1.5` con el campo de 40 da los mismos 52 px de alto que tenía la
            cabecera con `py-3` y el texto grande a mano: cambia el campo, no el
            formato del panel. -->

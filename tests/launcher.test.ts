@@ -533,16 +533,17 @@ describe('las piezas salen de la librería', () => {
 		expect(view.findAllComponents(ListRow)).toHaveLength(1);
 	});
 
-	test('el panel es la superficie que flota, con la esquina de la ventana', async () => {
+	test('el panel es la superficie translúcida del escritorio, con la esquina de la ventana', async () => {
 		// La regresión de antes: decía `rounded-window`, que no existe, y el
-		// panel abría con las esquinas cuadradas. Y opaco: una superficie de
-		// capa no ve el escritorio, así que un fondo translúcido no mostraba
-		// nada (vue-libvasak#74).
+		// panel abría con las esquinas cuadradas. Y va en `ui-shell`, no en
+		// `ui-float`: opaco tapaba el desenfoque que pone Wayfire detrás
+		// (vue-libvasak `docs/once-ui.md` §13).
 		view = mount(Launcher);
 		await nextTick();
 
 		const panel = view.get('.rounded-corner-window');
-		expect(panel.classes()).toEqual(expect.arrayContaining(['bg-ui-float', 'shadow-surface-l', 'border-ui-line']));
-		expect(panel.classes().some((name) => /^bg-ui-bg/.test(name))).toBe(false);
+		expect(panel.classes()).toEqual(expect.arrayContaining(['bg-ui-shell', 'shadow-surface-l', 'border-ui-line']));
+		expect(panel.classes().some((name) => /^bg-ui-(?:bg|float)/.test(name))).toBe(false);
+		expect(panel.classes().some((name) => name.includes('backdrop-blur'))).toBe(false);
 	});
 });
