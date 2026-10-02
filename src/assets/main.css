@@ -217,7 +217,8 @@
    en `base`: así la de un componente la pisa en vez de perder contra ella.
 
    Y la clase `.background` se fue: la librería 2.0 ya no la lee y el panel del
-   lanzador va en `bg-ui-float` (memoria `tokens-de-fondo`). */
+   lanzador va en `bg-ui-shell`, translúcido para que se vea el desenfoque de
+   Wayfire (memoria `tokens-de-fondo`). */
 @layer base {
   body {
     color: var(--color-tx-main);

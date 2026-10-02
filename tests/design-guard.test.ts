@@ -30,8 +30,8 @@
  *   ventana está, y en WebKitGTK ni `matchMedia` ni `resize` avisan. Lo que
  *   cambia con el ancho va con consultas de contenedor o `ResizeObserver`.
  * - **La forma de Once UI**: ni las sombras de Tailwind (que además traen su
- *   negro fijo), ni desenfoque detrás (una superficie de capa no ve el
- *   escritorio: el `backdrop-blur` cuesta y no muestra nada), ni escalas, giros
+ *   negro fijo), ni desenfoque detrás (el `backdrop-blur` del HTML: el de lo
+ *   que hay detrás del lanzador lo pone Wayfire), ni escalas, giros
  *   o desplazamientos al pasar o al apretar, ni duraciones fuera de 100, 150,
  *   200 y 300 ms.
  *
@@ -184,7 +184,7 @@ describe('lo que se usa existe', () => {
 		// compara, pasa siempre.
 		const tokens = await declaredTokens();
 
-		for (const color of ['tx-main', 'tx-muted', 'ui-surface', 'status-error', 'primary', 'ui-line', 'ui-hover', 'ui-float', 'ui-focus', 'ui-selected-accent']) {
+		for (const color of ['tx-main', 'tx-muted', 'ui-surface', 'status-error', 'primary', 'ui-line', 'ui-hover', 'ui-float', 'ui-shell', 'ui-focus', 'ui-selected-accent']) {
 			expect(tokens.colors, `falta --color-${color}`).toContain(color);
 		}
 		for (const radius of ['corner-xs', 'corner-s', 'corner-m', 'corner-l', 'corner-xl', 'corner-full', 'corner-window']) {
