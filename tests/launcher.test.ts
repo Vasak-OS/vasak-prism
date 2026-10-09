@@ -542,8 +542,23 @@ describe('las piezas salen de la librería', () => {
 		await nextTick();
 
 		const panel = view.get('.rounded-corner-window');
-		expect(panel.classes()).toEqual(expect.arrayContaining(['bg-ui-shell', 'shadow-surface-l', 'border-ui-line']));
+		expect(panel.classes()).toEqual(expect.arrayContaining(['bg-ui-shell', 'shadow-surface-l']));
 		expect(panel.classes().some((name) => /^bg-ui-(?:bg|float)/.test(name))).toBe(false);
 		expect(panel.classes().some((name) => name.includes('backdrop-blur'))).toBe(false);
+	});
+
+	test('el canto de afuera del panel es el que se elige en Configuración, no el fijo', async () => {
+		// El lanzador es un emergente del escritorio, como el panel y los
+		// carteles: su borde de afuera sigue el grosor y el color de
+		// `style.border` (vue-libvasak 2.16, utilidad `window-border`). Con
+		// `border border-ui-line` se quedaba con el canto fino de siempre
+		// aunque el resto del escritorio cambiara.
+		view = mount(Launcher);
+		await nextTick();
+
+		const panel = view.get('.rounded-corner-window');
+		expect(panel.classes()).toContain('window-border');
+		expect(panel.classes()).not.toContain('border-ui-line');
+		expect(panel.classes()).not.toContain('border');
 	});
 });
