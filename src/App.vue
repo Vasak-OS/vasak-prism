@@ -7,6 +7,7 @@
  * ventanas normales del escritorio; ese molde va a hacer falta cuando haya
  * preferencias, y por eso sigue en el repositorio.
  */
+import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useConfigStore } from '@vasakgroup/plugin-config-manager';
 import { onMounted, onUnmounted, type Ref, ref } from 'vue';
@@ -15,6 +16,9 @@ import Launcher from '@/views/Launcher.vue';
 const stopConfigListener: Ref<UnlistenFn | null> = ref(null);
 
 onMounted(async () => {
+	// Afina el WebKit de la ventana para bajar su consumo de memoria; sin bloquear.
+	invoke('tune_webview').catch(() => {});
+
 	try {
 		const config = useConfigStore();
 		await config.loadConfig();

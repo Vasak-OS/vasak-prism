@@ -5318,7 +5318,7 @@ dependencies = [
 
 [[package]]
 name = "vasak-prism"
-version = "0.16.1"
+version = "0.16.2"
 dependencies = [
  "dirs 7.0.0",
  "gdk",
@@ -5341,6 +5341,7 @@ dependencies = [
  "tauri-plugin-vsk-contextual-menu",
  "tauri-plugin-vsk-journal",
  "walkdir",
+ "webkit2gtk",
  "zbus",
 ]
 

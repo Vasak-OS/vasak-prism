@@ -1,6 +1,6 @@
 [package]
 name = "vasak-prism"
-version = "0.16.1"
+version = "0.16.2"
 description = "El lanzador de VasakOS: una consulta, todos los resultados"
 authors = ["Vasak Group", "Joaquin (Pato) Decima"]
 edition = "2021"
@@ -42,6 +42,11 @@ tauri-plugin-shell = "2"
 gtk = "0.18"
 gdk = "0.18"
 glib = "0.18"
+
+# Para afinar el WebKit de la ventana (ver `commands/webkit.rs`): bajar al
+# `WebKitWebView` por el árbol de GTK y tocar sus settings y su caché. La trae
+# Tauri vía wry, así que no agrega nada nuevo a la imagen.
+webkit2gtk = "2.0"
 
 # La ventana centrada, encima de todo y con el teclado en exclusiva. Con una
 # ventana normal el compositor la pone donde quiere y no se queda con el teclado.

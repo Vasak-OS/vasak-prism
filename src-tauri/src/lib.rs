@@ -6,6 +6,7 @@
 pub mod argumentos;
 pub mod catalogo;
 pub mod comandos;
+pub mod commands;
 pub mod lanzador;
 mod locales;
 pub mod proveedores;
@@ -151,7 +152,8 @@ pub fn run(mostrar_al_arrancar: bool) {
             comandos::ejecutar,
             comandos::abrir_configuracion,
             comandos::presentar_ventana,
-            comandos::esconder
+            comandos::esconder,
+            commands::webkit::tune_webview
         ])
         .run(tauri::generate_context!())
         .expect("error al ejecutar la aplicación");
