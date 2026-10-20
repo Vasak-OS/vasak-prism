@@ -41,7 +41,7 @@ tauri-plugin-shell = "2"
 # capa: eso es GTK crudo, no hay API de Tauri que lo haga.
 gtk = "0.18"
 gdk = "0.18"
-glib = "0.18"
+glib = "0.20"
 
 # Para afinar el WebKit de la ventana (ver `commands/webkit.rs`): bajar al
 # `WebKitWebView` por el árbol de GTK y tocar sus settings y su caché. La trae
