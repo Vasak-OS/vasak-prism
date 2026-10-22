@@ -1,6 +1,6 @@
 [package]
 name = "vasak-prism"
-version = "0.16.2"
+version = "0.16.3"
 description = "El lanzador de VasakOS: una consulta, todos los resultados"
 authors = ["Vasak Group", "Joaquin (Pato) Decima"]
 edition = "2021"
@@ -32,7 +32,7 @@ reqwest = { version = "0.12", default-features = false, features = ["blocking", 
 # Los plugins del escritorio. Los cuatro, no dos: una app de VasakOS tiene que
 # hablar el idioma de la sesión y abrir el menú del sistema con el clic derecho.
 tauri-plugin-vicons = "2"
-tauri-plugin-config-manager = "2"
+tauri-plugin-config-manager = "2.13"
 tauri-plugin-i18n-vsk = "2.1.1"
 tauri-plugin-vsk-contextual-menu = "2"
 tauri-plugin-shell = "2"
