@@ -11,6 +11,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useConfigStore } from '@vasakgroup/plugin-config-manager';
 import { onMounted, onUnmounted, type Ref, ref } from 'vue';
+import { saveTheme } from '@/tools/theme-cache';
 import Launcher from '@/views/Launcher.vue';
 
 const stopConfigListener: Ref<UnlistenFn | null> = ref(null);
@@ -21,10 +22,10 @@ onMounted(async () => {
 
 	try {
 		const config = useConfigStore();
-		await config.loadConfig();
+		await config.loadConfig().then(() => saveTheme());
 
 		stopConfigListener.value = await listen('config-changed', async () => {
-			await config.loadConfig();
+			await config.loadConfig().then(() => saveTheme());
 		});
 	} catch (error) {
 		console.error('Error al cargar configuración en App.vue', error);
