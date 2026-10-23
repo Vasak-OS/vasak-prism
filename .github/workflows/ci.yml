@@ -52,6 +52,7 @@ jobs:
       #   build-essential         el compilador de C de los `-sys`
       paquetes_rust: >-
         libwebkit2gtk-4.1-dev
+        libglib2.0-dev
         libgtk-layer-shell-dev
         libsqlite3-dev
         lld
